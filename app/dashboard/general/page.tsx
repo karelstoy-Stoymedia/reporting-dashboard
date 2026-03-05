@@ -132,7 +132,7 @@ function GeneralContent() {
                   innerRadius={50}
                   outerRadius={80}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {revenueBySource.map((_, i) => (
