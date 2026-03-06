@@ -11,7 +11,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { name, tier, source, started_at, weekend_delivery, notes, lead_quota, order_price_per_lead } = body
+  const { name, tier, source, started_at, weekend_delivery, notes, lead_quota, order_price_per_lead, service_id } = body
 
   if (!name || !tier || !started_at || !lead_quota || !order_price_per_lead) {
     return NextResponse.json({ error: 'name, tier, started_at, lead_quota, order_price_per_lead are required' }, { status: 400 })
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     source: 'manual',
     is_renewal: false,
     weekend_delivery: weekend_delivery ?? false,
+    service_id: service_id || null,
   })
 
   if (orderError) return NextResponse.json({ error: orderError.message }, { status: 500 })

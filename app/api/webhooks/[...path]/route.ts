@@ -293,8 +293,18 @@ export async function POST(
       case 'customers/new-order': {
         const {
           customer_id, customer_name, lead_quota, price_per_lead,
-          order_starts_at, end_current_order, notes, weekend_delivery
+          order_starts_at, end_current_order, notes, weekend_delivery, service_slug
         } = body
+
+        let serviceId = null
+        if (service_slug) {
+          const { data: svc } = await supabase
+            .from('services')
+            .select('id')
+            .eq('slug', service_slug)
+            .single()
+          serviceId = svc?.id ?? null
+        }
 
         if (!lead_quota || !price_per_lead) {
           return NextResponse.json({ error: 'lead_quota and price_per_lead are required' }, { status: 400 })
@@ -332,6 +342,7 @@ export async function POST(
           source: 'webhook',
           notes: notes ?? null,
           weekend_delivery: weekend_delivery ?? false,
+          service_id: serviceId,
         })
 
         return NextResponse.json({ success: true })

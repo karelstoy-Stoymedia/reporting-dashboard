@@ -11,11 +11,19 @@ interface Customer {
   started_at: string
   notes: string | null
 }
+
+interface Service {
+  id: string
+  name: string
+  slug: string
+}
+
 export default function CustomersTab() {
   const [items, setItems] = useState<Customer[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', tier: 'retainer', source: '', started_at: new Date().toISOString().split('T')[0], notes: '', lead_quota: '', order_price_per_lead: '', weekend_delivery: false })
+  const [form, setForm] = useState({ name: '', tier: 'retainer', source: '', started_at: new Date().toISOString().split('T')[0], notes: '', lead_quota: '', order_price_per_lead: '', weekend_delivery: false, service_id: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editItem, setEditItem] = useState<Customer | null>(null)
@@ -25,9 +33,14 @@ export default function CustomersTab() {
   const [deleteName, setDeleteName] = useState('')
 
   async function load() {
-    const res = await fetch('/api/admin/customers')
-    const data = await res.json()
-    setItems(data)
+    const [customersRes, servicesRes] = await Promise.all([
+      fetch('/api/admin/customers'),
+      fetch('/api/admin/services'),
+    ])
+    const customersData = await customersRes.json()
+    const servicesData = await servicesRes.json()
+    setItems(customersData)
+    setServices(servicesData)
     setLoading(false)
   }
 
@@ -44,7 +57,7 @@ export default function CustomersTab() {
     })
     if (res.ok) {
       setShowForm(false)
-      setForm({ name: '', tier: 'retainer', source: '', started_at: new Date().toISOString().split('T')[0], notes: '', lead_quota: '', order_price_per_lead: '', weekend_delivery: false })
+      setForm({ name: '', tier: 'retainer', source: '', started_at: new Date().toISOString().split('T')[0], notes: '', lead_quota: '', order_price_per_lead: '', weekend_delivery: false, service_id: '' })
       load()
     } else { const d = await res.json(); setError(d.error ?? 'Failed to create') }
     setSaving(false)
@@ -115,6 +128,17 @@ export default function CustomersTab() {
               <label className="block text-slate-400 text-xs mb-1.5">Source</label>
               <input value={form.source} onChange={(e) => setForm({...form, source: e.target.value})} placeholder="e.g. Outbound cold call" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
+            {form.tier === 'pay_per_lead' && (
+              <div>
+                <label className="block text-slate-400 text-xs mb-1.5">Service (leads for)</label>
+                <select value={form.service_id} onChange={(e) => setForm({...form, service_id: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="">— Select service —</option>
+                  {services.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="col-span-2">
             <label className="block text-slate-400 text-xs mb-1.5">Weekend Delivery (this order)</label>

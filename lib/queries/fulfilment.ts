@@ -33,7 +33,7 @@ export async function getFulfilmentDashboardData(startDate: string, endDate: str
 
     supabase
       .from('customer_orders')
-      .select('id, customer_id, lead_quota, price_per_lead, starts_at, ends_at, status, is_renewal, leads_delivered, weekend_delivery, notes')
+      .select('id, customer_id, service_id, lead_quota, price_per_lead, starts_at, ends_at, status, is_renewal, leads_delivered, weekend_delivery, notes')
       .order('starts_at', { ascending: false }),
 
     supabase
@@ -139,8 +139,8 @@ export async function getFulfilmentDashboardData(startDate: string, endDate: str
     const cSoldAll = cAllEvents.filter(e => e.event_type === 'lead_sold')
     const cReturnedAll = cAllEvents.filter(e => e.event_type === 'lead_returned')
 
-    // Services this customer buys (from all-time sold events)
-    const serviceIds = [...new Set(cSoldAll.map(e => e.service_id).filter(Boolean))]
+    // Services this customer buys (from their orders)
+    const serviceIds = [...new Set(cOrders.map(o => o.service_id).filter(Boolean))] as string[]
     const serviceNames = serviceIds
       .map(sid => allServices.find(s => s.id === sid)?.name)
       .filter(Boolean) as string[]
