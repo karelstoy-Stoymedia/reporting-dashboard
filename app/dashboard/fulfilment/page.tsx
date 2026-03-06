@@ -219,7 +219,13 @@ function CustomerDetailModal({ customer, onClose }: { customer: CustomerRow; onC
               {customer.allOrders.length === 0 ? (
                 <p className="text-slate-500 text-sm">No orders found</p>
               ) : (
-                customer.allOrders.map(o => (
+                [...customer.allOrders]
+                .sort((a, b) => {
+                  if (a.status === 'active' && b.status !== 'active') return -1
+                  if (a.status !== 'active' && b.status === 'active') return 1
+                  return new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
+                })
+                .map(o => (
                   <div key={o.id} className="bg-slate-800 rounded-xl p-3 flex items-center justify-between">
                     <div>
                       <p className="text-white text-sm font-medium">{o.lead_quota} leads @ {fmt(Number(o.price_per_lead))}/lead</p>
