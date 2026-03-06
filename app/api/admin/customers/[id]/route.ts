@@ -8,7 +8,13 @@ export async function PATCH(
   const supabase = createServiceClient()
   const { id } = await params
   const body = await request.json()
-  const { error } = await supabase.from('customers').update(body).eq('id', id)
+  const { name, tier, source, notes } = body
+  const updates: Record<string, unknown> = {}
+  if (name !== undefined) updates.name = name
+  if (tier !== undefined) updates.tier = tier
+  if (source !== undefined) updates.source = source
+  if (notes !== undefined) updates.notes = notes
+  const { error } = await supabase.from('customers').update(updates).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
