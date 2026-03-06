@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const serviceId = searchParams.get('serviceId') ?? undefined
 
   try {
-    const data = await getFulfilmentDashboardData(startDate, endDate, serviceId)
+    const data = await getFulfilmentDashboardData(startDate, endDate)
     return NextResponse.json(data, { headers: { 'Cache-Control': 's-maxage=60' } })
   } catch (e) {
     console.error('Fulfilment dashboard error:', e)

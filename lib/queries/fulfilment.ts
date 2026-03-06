@@ -1,11 +1,23 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
-export async function getFulfilmentDashboardData(startDate: string, endDate: string, serviceId?: string) {
+function countWeekdays(start: Date, end: Date): number {
+  let count = 0
+  const cur = new Date(start)
+  while (cur <= end) {
+    const day = cur.getDay()
+    if (day !== 0 && day !== 6) count++
+    cur.setDate(cur.getDate() + 1)
+  }
+  return Math.max(count, 1)
+}
+
+export async function getFulfilmentDashboardData(startDate: string, endDate: string) {
   const supabase = createServiceClient()
 
   const [
     { data: services },
     { data: customers },
+    { data: orders },
     { data: leadEvents },
   ] = await Promise.all([
     supabase
@@ -16,36 +28,36 @@ export async function getFulfilmentDashboardData(startDate: string, endDate: str
 
     supabase
       .from('customers')
-      .select('id, tier'),
+      .select('id, name, tier, source, started_at')
+      .eq('tier', 'pay_per_lead'),
+
+    supabase
+      .from('customer_orders')
+      .select('id, customer_id, lead_quota, price_per_lead, starts_at, ends_at, status, is_renewal, leads_delivered, weekend_delivery, notes')
+      .order('starts_at', { ascending: false }),
 
     supabase
       .from('lead_events')
-      .select('id, customer_id, service_id, event_type, lead_price, lead_cost, event_date')
-      .in('event_type', ['lead_sold', 'lead_returned'])
-      .gte('event_date', startDate)
-      .lte('event_date', endDate),
+      .select('id, customer_id, service_id, event_type, lead_price, lead_cost, event_date, created_at')
+      .in('event_type', ['lead_sold', 'lead_returned']),
   ])
 
   const allServices = services ?? []
   const allCustomers = customers ?? []
+  const allOrders = orders ?? []
   const allEvents = leadEvents ?? []
 
-  // Only pay_per_lead customer IDs
-  const pplCustomerIds = new Set(
-    allCustomers
-      .filter(c => c.tier === 'pay_per_lead')
-      .map(c => c.id)
-  )
+  const pplCustomerIds = new Set(allCustomers.map(c => c.id))
 
-  // Filter events to pay_per_lead customers only
+  // All events for ppl customers only
   const pplEvents = allEvents.filter(e => e.customer_id && pplCustomerIds.has(e.customer_id))
 
-  // Build metrics per service
-  const serviceMetrics = allServices.map(service => {
-    const events = serviceId && serviceId !== 'all'
-      ? pplEvents.filter(e => e.service_id === service.id)
-      : pplEvents.filter(e => e.service_id === service.id)
+  // Range-filtered events for metrics
+  const rangeEvents = pplEvents.filter(e => e.event_date >= startDate && e.event_date <= endDate)
 
+  // ── Service metrics ──────────────────────────────────────────────────────
+  const serviceMetrics = allServices.map(service => {
+    const events = rangeEvents.filter(e => e.service_id === service.id)
     const soldEvents = events.filter(e => e.event_type === 'lead_sold')
     const returnedEvents = events.filter(e => e.event_type === 'lead_returned')
 
@@ -79,7 +91,6 @@ export async function getFulfilmentDashboardData(startDate: string, endDate: str
     }
   })
 
-  // Blended totals across all services
   const blended = {
     id: 'all',
     name: 'All Services',
@@ -97,9 +108,9 @@ export async function getFulfilmentDashboardData(startDate: string, endDate: str
   blended.grossMargin = blended.revenue > 0 ? blended.profit / blended.revenue : 0
   blended.avgLeadPrice = blended.leadsSold > 0 ? blended.revenue / blended.leadsSold : 0
 
-  // Daily breakdown for charts (all ppl events in range)
+  // ── Daily chart data ─────────────────────────────────────────────────────
   const dailyMap = new Map<string, { date: string; sold: number; returned: number; revenue: number; cost: number }>()
-  pplEvents.forEach(e => {
+  rangeEvents.forEach(e => {
     const d = e.event_date
     if (!dailyMap.has(d)) dailyMap.set(d, { date: d, sold: 0, returned: 0, revenue: 0, cost: 0 })
     const day = dailyMap.get(d)!
@@ -115,10 +126,118 @@ export async function getFulfilmentDashboardData(startDate: string, endDate: str
   })
   const dailyData = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date))
 
+  // ── Customer list with pace ──────────────────────────────────────────────
+  const now = new Date()
+
+  const customerList = allCustomers.map(c => {
+    const cOrders = allOrders.filter(o => o.customer_id === c.id)
+    const activeOrders = cOrders.filter(o => o.status === 'active')
+    const currentOrder = activeOrders[0] ?? null
+
+    // All-time events for this customer
+    const cAllEvents = pplEvents.filter(e => e.customer_id === c.id)
+    const cSoldAll = cAllEvents.filter(e => e.event_type === 'lead_sold')
+    const cReturnedAll = cAllEvents.filter(e => e.event_type === 'lead_returned')
+
+    // Services this customer buys (from all-time sold events)
+    const serviceIds = [...new Set(cSoldAll.map(e => e.service_id).filter(Boolean))]
+    const serviceNames = serviceIds
+      .map(sid => allServices.find(s => s.id === sid)?.name)
+      .filter(Boolean) as string[]
+
+    // Range events
+    const cRangeEvents = rangeEvents.filter(e => e.customer_id === c.id)
+    const cRangeSold = cRangeEvents.filter(e => e.event_type === 'lead_sold')
+    const leadsInRange = cRangeSold.length
+    const spendInRange = cRangeSold.reduce((s, e) => s + Number(e.lead_price || 0), 0)
+
+    // First / last lead
+    const sortedSold = [...cSoldAll].sort((a, b) => a.event_date.localeCompare(b.event_date))
+    const firstLeadDate = sortedSold[0]?.event_date ?? null
+    const lastLeadDate = sortedSold[sortedSold.length - 1]?.event_date ?? null
+    const daysSinceLast = lastLeadDate
+      ? Math.floor((now.getTime() - new Date(lastLeadDate).getTime()) / (1000 * 60 * 60 * 24))
+      : null
+
+    // LTV / LTGP
+    const allTimeLtv = cSoldAll.reduce((s, e) => s + Number(e.lead_price || 0), 0)
+    const allTimeLtgp = cSoldAll.reduce((s, e) => s + (Number(e.lead_price || 0) - Number(e.lead_cost || 0)), 0)
+    const allTimeReturned = cReturnedAll.reduce((s, e) => s + Number(e.lead_price || 0), 0)
+    const returnRate = allTimeLtv > 0 ? allTimeReturned / allTimeLtv : 0
+
+    // Pace calculation using weekend_delivery from active order
+    const weekendDelivery = currentOrder?.weekend_delivery ?? false
+    const quota = currentOrder?.lead_quota ?? 0
+    const orderStart = currentOrder ? new Date(currentOrder.starts_at) : null
+    const orderEnd = currentOrder ? new Date(currentOrder.ends_at) : null
+
+    const daysInOrder = orderStart && orderEnd
+      ? (weekendDelivery
+        ? Math.ceil((orderEnd.getTime() - orderStart.getTime()) / (1000 * 60 * 60 * 24))
+        : countWeekdays(orderStart, orderEnd))
+      : (weekendDelivery ? 30 : 22)
+
+    const daysElapsed = orderStart
+      ? (weekendDelivery
+        ? Math.max(1, Math.floor((now.getTime() - orderStart.getTime()) / (1000 * 60 * 60 * 24)))
+        : countWeekdays(orderStart, now))
+      : 1
+
+    // Count leads delivered to current active order only
+    const delivered = currentOrder
+      ? pplEvents.filter(e =>
+          e.customer_id === c.id &&
+          e.event_type === 'lead_sold' &&
+          e.event_date >= currentOrder.starts_at &&
+          e.event_date <= currentOrder.ends_at
+        ).length
+      : 0
+
+    const expectedByNow = quota > 0 ? (quota / daysInOrder) * daysElapsed : 0
+    const onPace = expectedByNow > 0 ? delivered / expectedByNow : 1
+    const behindPace = onPace < 0.9 && quota > 0
+    const isActive = activeOrders.length > 0
+
+    return {
+      id: c.id,
+      name: c.name,
+      tier: c.tier,
+      source: c.source,
+      started_at: c.started_at,
+      isActive,
+      serviceNames,
+      serviceIds,
+      firstLeadDate,
+      lastLeadDate,
+      daysSinceLast,
+      leadsInRange,
+      spendInRange,
+      allTimeLtv,
+      allTimeLtgp,
+      returnRate,
+      currentOrder,
+      allOrders: cOrders,
+      quota,
+      delivered,
+      onPace,
+      behindPace,
+      pricePerLead: currentOrder?.price_per_lead ?? null,
+      weekendDelivery,
+    }
+  })
+
+  // Sort: behind pace first, then by LTV
+  customerList.sort((a, b) => {
+    if (a.behindPace && !b.behindPace) return -1
+    if (!a.behindPace && b.behindPace) return 1
+    return b.allTimeLtv - a.allTimeLtv
+  })
+
   return {
     services: allServices,
     serviceMetrics,
     blended,
     dailyData,
+    customerList,
   }
 }
