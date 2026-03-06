@@ -39,7 +39,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-red-600 text-white'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
@@ -62,3 +62,4 @@ export default function AdminPage() {
     </div>
   )
 }
+

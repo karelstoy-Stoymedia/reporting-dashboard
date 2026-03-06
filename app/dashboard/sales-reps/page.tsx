@@ -73,7 +73,7 @@ function outcomeBadge(outcome: string | null, showed: boolean | null) {
     full_pay: 'bg-emerald-900/60 text-emerald-400',
     split_pay: 'bg-teal-900/60 text-teal-400',
     scheduled_again: 'bg-blue-900/60 text-blue-400',
-    follow_up: 'bg-indigo-900/60 text-indigo-400',
+    follow_up: 'bg-red-900/60/60 text-red-400',
     unqualified: 'bg-red-900/60 text-red-400',
     no_show: 'bg-slate-700 text-slate-400',
   }
@@ -96,7 +96,7 @@ function MetricRow({ label, value, highlight }: { label: string; value: string; 
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-slate-800 last:border-0">
       <span className="text-slate-400 text-sm">{label}</span>
-      <span className={`text-sm font-medium ${highlight ? 'text-indigo-400' : 'text-white'}`}>{value}</span>
+      <span className={`text-sm font-medium ${highlight ? 'text-red-400' : 'text-white'}`}>{value}</span>
     </div>
   )
 }
@@ -171,7 +171,7 @@ export default function SalesRepsPage() {
             <div className="py-1">
               <button
                 onClick={() => setSelectedRepId('all')}
-                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedRepId === 'all' ? 'bg-indigo-600/20 text-indigo-400 font-medium' : 'text-slate-300 hover:bg-slate-800'}`}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedRepId === 'all' ? 'bg-red-600/20 text-red-400 font-medium' : 'text-slate-300 hover:bg-slate-800'}`}
               >
                 All Reps
               </button>
@@ -182,7 +182,7 @@ export default function SalesRepsPage() {
                   <button
                     key={rep.id}
                     onClick={() => setSelectedRepId(rep.id)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedRepId === rep.id ? 'bg-indigo-600/20 text-indigo-400 font-medium' : 'text-slate-300 hover:bg-slate-800'}`}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedRepId === rep.id ? 'bg-red-600/20 text-red-400 font-medium' : 'text-slate-300 hover:bg-slate-800'}`}
                   >
                     {rep.name}
                   </button>
@@ -231,7 +231,7 @@ export default function SalesRepsPage() {
                 ].map(card => (
                   <div key={card.label} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
                     <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">{card.label}</p>
-                    <p className={`text-2xl font-bold ${card.highlight ? 'text-indigo-400' : 'text-white'}`}>{card.value}</p>
+                    <p className={`text-2xl font-bold ${card.highlight ? 'text-red-400' : 'text-white'}`}>{card.value}</p>
                   </div>
                 ))}
               </div>
@@ -327,7 +327,7 @@ export default function SalesRepsPage() {
                                 {b.recording_url && (
                                   <div>
                                     <p className="text-slate-500 text-xs mb-1">Recording</p>
-                                    <a href={b.recording_url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline text-xs">
+                                    <a href={b.recording_url} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline text-xs">
                                       Watch Recording →
                                     </a>
                                   </div>
@@ -357,3 +357,4 @@ export default function SalesRepsPage() {
     </div>
   )
 }
+

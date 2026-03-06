@@ -61,16 +61,25 @@ export default function DateRangePicker() {
     return currentStart ? 'Custom' : 'Last 30 days'
   }
 
+  const activePreset = getActivePreset()
+  const isCustomActive = activePreset === 'Custom'
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg p-1">
         {presets.map((p) => {
-          const active = getActivePreset() === p.label
+          const active = activePreset === p.label
           return (
             <button
               key={p.label}
-              onClick={() => { const d = getPresetDates(p.days); applyDates(d.start, d.end) }}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+              onClick={() => {
+                const d = getPresetDates(p.days)
+                applyDates(d.start, d.end)
+                setShowCustom(false)
+              }}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                active ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
             >
               {p.label}
             </button>
@@ -78,7 +87,11 @@ export default function DateRangePicker() {
         })}
         <button
           onClick={() => setShowCustom(!showCustom)}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${getActivePreset() === 'Custom' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            isCustomActive || showCustom
+              ? 'bg-red-600 text-white'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
         >
           Custom
         </button>
@@ -90,26 +103,27 @@ export default function DateRangePicker() {
             type="date"
             value={customStart}
             onChange={(e) => setCustomStart(e.target.value)}
-            className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-red-500"
           />
           <span className="text-slate-500 text-xs">to</span>
           <input
             type="date"
             value={customEnd}
             onChange={(e) => setCustomEnd(e.target.value)}
-            className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-red-500"
           />
           <button
-            onClick={() => { if (customStart && customEnd) { applyDates(customStart, customEnd); setShowCustom(false) } }}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1 rounded"
+            onClick={() => {
+              if (customStart && customEnd) {
+                applyDates(customStart, customEnd)
+                setShowCustom(false)
+              }
+            }}
+            className="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1 rounded font-medium"
           >
             Apply
           </button>
         </div>
-      )}
-
-      {(currentStart && currentEnd) && (
-        <span className="text-slate-500 text-xs">{currentStart} → {currentEnd}</span>
       )}
     </div>
   )

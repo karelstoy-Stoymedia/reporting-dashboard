@@ -80,20 +80,20 @@ export default function OutboundOverheadTab() {
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-6 flex gap-3 items-end flex-wrap">
         <div>
           <label className="block text-slate-400 text-xs mb-1.5">Channel</label>
-          <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className="bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className="bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-red-500">
             <option value="">Select channel</option>
             {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-slate-400 text-xs mb-1.5">Month</label>
-          <input type="month" value={monthYear} onChange={(e) => setMonthYear(e.target.value)} className="bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input type="month" value={monthYear} onChange={(e) => setMonthYear(e.target.value)} className="bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-red-500" />
         </div>
         <div>
           <label className="block text-slate-400 text-xs mb-1.5">Amount ($)</label>
-          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 3500" className="bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 3500" className="bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-red-500" />
         </div>
-        <button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{saving ? 'Saving...' : 'Save'}</button>
+        <button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{saving ? 'Saving...' : 'Save'}</button>
         {error && <p className="text-red-400 text-sm w-full">{error}</p>}
       </div>
 
@@ -105,10 +105,10 @@ export default function OutboundOverheadTab() {
             <p className="text-slate-400 text-sm mb-4">{editItem.outbound_channels?.name} — {editItem.month_year?.slice(0, 7)}</p>
             <div>
               <label className="block text-slate-400 text-xs mb-1.5">Amount ($)</label>
-              <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={handleEdit} disabled={editSaving} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{editSaving ? 'Saving...' : 'Save Changes'}</button>
+              <button onClick={handleEdit} disabled={editSaving} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{editSaving ? 'Saving...' : 'Save Changes'}</button>
               <button onClick={() => setEditItem(null)} className="text-slate-400 hover:text-white text-sm px-3 py-2">Cancel</button>
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function OutboundOverheadTab() {
                   <td className="py-3 pr-4 text-slate-400">{e.month_year?.slice(0, 7)}</td>
                   <td className="py-3 pr-4 text-white">${Number(e.overhead_amount).toLocaleString()}</td>
                   <td className="py-3 flex gap-3">
-                    <button onClick={() => { setEditItem(e); setEditAmount(String(e.overhead_amount)) }} className="text-indigo-400 hover:text-indigo-300 text-xs">Edit</button>
+                    <button onClick={() => { setEditItem(e); setEditAmount(String(e.overhead_amount)) }} className="text-red-400 hover:text-red-300 text-xs">Edit</button>
                     <button onClick={() => setDeleteId(e.id)} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
                   </td>
                 </tr>
@@ -158,3 +158,5 @@ export default function OutboundOverheadTab() {
     </AdminCard>
   )
 }
+
+

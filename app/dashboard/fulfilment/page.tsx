@@ -108,7 +108,7 @@ function MetricCard({ label, value, sub, highlight }: { label: string; value: st
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
       <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${highlight ? 'text-indigo-400' : 'text-white'}`}>{value}</p>
+      <p className={`text-2xl font-bold ${highlight ? 'text-red-400' : 'text-white'}`}>{value}</p>
       {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
     </div>
   )
@@ -173,7 +173,7 @@ function CustomerDetailModal({ customer, onClose }: { customer: CustomerRow; onC
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-2">Services</p>
               <div className="flex flex-wrap gap-2">
                 {customer.serviceNames.map(s => (
-                  <span key={s} className="px-3 py-1 bg-indigo-900/40 text-indigo-400 rounded-full text-xs">{s}</span>
+                  <span key={s} className="px-3 py-1 bg-red-900/60/40 text-red-400 rounded-full text-xs">{s}</span>
                 ))}
               </div>
             </div>
@@ -232,7 +232,7 @@ function CustomerDetailModal({ customer, onClose }: { customer: CustomerRow; onC
                       <p className="text-slate-500 text-xs">{o.starts_at} → {o.ends_at}{o.notes ? ` · ${o.notes}` : ''}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {o.is_renewal && <span className="px-2 py-0.5 rounded text-xs bg-indigo-900/40 text-indigo-400">Renewal</span>}
+                      {o.is_renewal && <span className="px-2 py-0.5 rounded text-xs bg-red-900/60/40 text-red-400">Renewal</span>}
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                         o.status === 'active' ? 'bg-emerald-900/50 text-emerald-400'
                         : o.status === 'fulfilled' ? 'bg-blue-900/50 text-blue-400'
@@ -304,7 +304,7 @@ export default function FulfilmentPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setSelectedServiceId('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedServiceId === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedServiceId === 'all' ? 'bg-red-600 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'}`}
           >
             All Services
           </button>
@@ -315,7 +315,7 @@ export default function FulfilmentPage() {
               <button
                 key={service.id}
                 onClick={() => setSelectedServiceId(service.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedServiceId === service.id ? 'bg-indigo-600 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'}`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedServiceId === service.id ? 'bg-red-600 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'}`}
               >
                 {service.name}
               </button>
@@ -424,7 +424,7 @@ export default function FulfilmentPage() {
                         <div className="flex flex-wrap gap-1">
                           {c.serviceNames.length > 0
                             ? c.serviceNames.map(s => (
-                                <span key={s} className="px-1.5 py-0.5 bg-indigo-900/40 text-indigo-400 rounded text-xs">{s}</span>
+                                <span key={s} className="px-1.5 py-0.5 bg-red-900/60/40 text-red-400 rounded text-xs">{s}</span>
                               ))
                             : <span className="text-slate-500 text-xs">—</span>}
                         </div>
@@ -516,3 +516,4 @@ export default function FulfilmentPage() {
     </div>
   )
 }
+

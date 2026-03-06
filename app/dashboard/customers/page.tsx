@@ -44,7 +44,7 @@ function fmt(n: number | null | undefined) {
 
 function TierBadge({ tier }: { tier: string }) {
   const styles: Record<string, string> = {
-    retainer: 'bg-indigo-900/50 text-indigo-400',
+    retainer: 'bg-red-900/60/50 text-red-400',
     pay_per_lead: 'bg-amber-900/50 text-amber-400',
     hybrid: 'bg-emerald-900/50 text-emerald-400',
   }
@@ -134,7 +134,7 @@ function CustomersContent() {
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${filter === tab ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${filter === tab ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
               >
                 {tab === 'active' ? `Active (${data?.activeCustomers.length ?? 0})` : tab === 'past' ? `Past (${data?.pastCustomers.length ?? 0})` : `All (${allCustomers.length})`}
               </button>
@@ -144,7 +144,7 @@ function CustomersContent() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search customers..."
-            className="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-red-500"
           />
         </div>
 
@@ -177,7 +177,7 @@ function CustomersContent() {
                           <div>
                             <span>{c.delivered}/{c.quota}</span>
                             <div className="w-20 h-1 bg-slate-700 rounded-full mt-1">
-                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, (c.delivered / c.quota) * 100)}%` }} />
+                              <div className="h-full bg-red-500 rounded-full" style={{ width: `${Math.min(100, (c.delivered / c.quota) * 100)}%` }} />
                             </div>
                           </div>
                         ) : '—'}
@@ -220,3 +220,4 @@ export default function CustomersPage() {
     </Suspense>
   )
 }
+

@@ -113,7 +113,7 @@ function AdsContent() {
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setPlatform('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${platformId === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${platformId === 'all' ? 'bg-red-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white'}`}
         >
           All Platforms
         </button>
@@ -121,7 +121,7 @@ function AdsContent() {
           <button
             key={p.id}
             onClick={() => setPlatform(p.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${platformId === p.id ? 'bg-indigo-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${platformId === p.id ? 'bg-red-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white'}`}
           >
             {p.name}
           </button>
@@ -228,3 +228,4 @@ export default function AdsPage() {
     </Suspense>
   )
 }
+

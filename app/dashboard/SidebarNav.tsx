@@ -30,19 +30,19 @@ export default function SidebarNav() {
               href={href}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm group ${
                 isActive
-                  ? 'bg-indigo-600/20 text-white'
+                  ? 'bg-red-600/15 text-white'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
               <Icon
                 size={16}
                 className={`transition-colors ${
-                  isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-indigo-400'
+                  isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-red-400'
                 }`}
               />
               {label}
               {isActive && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400" />
               )}
             </Link>
           )
@@ -53,19 +53,19 @@ export default function SidebarNav() {
           href="/dashboard/admin"
           className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm group ${
             pathname.startsWith('/dashboard/admin')
-              ? 'bg-indigo-600/20 text-white'
+              ? 'bg-red-600/15 text-white'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Settings
             size={16}
             className={`transition-colors ${
-              pathname.startsWith('/dashboard/admin') ? 'text-indigo-400' : 'text-slate-500 group-hover:text-indigo-400'
+              pathname.startsWith('/dashboard/admin') ? 'text-red-400' : 'text-slate-500 group-hover:text-red-400'
             }`}
           />
           Admin
           {pathname.startsWith('/dashboard/admin') && (
-            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400" />
+            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400" />
           )}
         </Link>
       </div>

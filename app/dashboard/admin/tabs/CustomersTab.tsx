@@ -83,7 +83,7 @@ export default function CustomersTab() {
   }
 
   const tierBadge = (tier: string) => (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tier === 'retainer' ? 'bg-indigo-900/50 text-indigo-400' : 'bg-amber-900/50 text-amber-400'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tier === 'retainer' ? 'bg-red-900/60/50 text-red-400' : 'bg-amber-900/50 text-amber-400'}`}>
       {tier === 'retainer' ? 'Retainer' : 'Pay Per Lead'}
     </span>
   )
@@ -95,7 +95,7 @@ export default function CustomersTab() {
           <h2 className="text-white font-semibold text-lg">Customers</h2>
           <p className="text-slate-400 text-sm mt-0.5">Manual creation seeds first order automatically</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">+ Add Customer</button>
+        <button onClick={() => setShowForm(!showForm)} className="bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">+ Add Customer</button>
       </div>
 
       {showForm && (
@@ -103,35 +103,35 @@ export default function CustomersTab() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-slate-400 text-xs mb-1.5">Customer Name</label>
-              <input value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="e.g. Apex Roofing LLC" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="e.g. Apex Roofing LLC" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label className="block text-slate-400 text-xs mb-1.5">Tier</label>
-              <select value={form.tier} onChange={(e) => setForm({...form, tier: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <select value={form.tier} onChange={(e) => setForm({...form, tier: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="retainer">Retainer</option>
                 <option value="pay_per_lead">Pay Per Lead</option>
               </select>
             </div>
             <div>
               <label className="block text-slate-400 text-xs mb-1.5">Lead Quota (first order)</label>
-              <input type="number" value={form.lead_quota} onChange={(e) => setForm({...form, lead_quota: e.target.value})} placeholder="e.g. 80" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="number" value={form.lead_quota} onChange={(e) => setForm({...form, lead_quota: e.target.value})} placeholder="e.g. 80" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label className="block text-slate-400 text-xs mb-1.5">Price Per Lead ($)</label>
-              <input type="number" value={form.order_price_per_lead} onChange={(e) => setForm({...form, order_price_per_lead: e.target.value})} placeholder="e.g. 45" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="number" value={form.order_price_per_lead} onChange={(e) => setForm({...form, order_price_per_lead: e.target.value})} placeholder="e.g. 45" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label className="block text-slate-400 text-xs mb-1.5">Started At</label>
-              <input type="date" value={form.started_at} onChange={(e) => setForm({...form, started_at: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="date" value={form.started_at} onChange={(e) => setForm({...form, started_at: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label className="block text-slate-400 text-xs mb-1.5">Source</label>
-              <input value={form.source} onChange={(e) => setForm({...form, source: e.target.value})} placeholder="e.g. Outbound cold call" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input value={form.source} onChange={(e) => setForm({...form, source: e.target.value})} placeholder="e.g. Outbound cold call" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             {form.tier === 'pay_per_lead' && (
               <div>
                 <label className="block text-slate-400 text-xs mb-1.5">Service (leads for)</label>
-                <select value={form.service_id} onChange={(e) => setForm({...form, service_id: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <select value={form.service_id} onChange={(e) => setForm({...form, service_id: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                   <option value="">— Select service —</option>
                   {services.map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
@@ -143,7 +143,7 @@ export default function CustomersTab() {
           <div className="col-span-2">
             <label className="block text-slate-400 text-xs mb-1.5">Weekend Delivery (this order)</label>
             <div className="flex items-center gap-3">
-              <button onClick={() => setForm({...form, weekend_delivery: !form.weekend_delivery})} className={`w-10 h-5 rounded-full transition-colors ${form.weekend_delivery ? 'bg-indigo-600' : 'bg-slate-600'} relative`}>
+              <button onClick={() => setForm({...form, weekend_delivery: !form.weekend_delivery})} className={`w-10 h-5 rounded-full transition-colors ${form.weekend_delivery ? 'bg-red-600' : 'bg-slate-600'} relative`}>
                 <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${form.weekend_delivery ? 'translate-x-5' : 'translate-x-0.5'}`} />
               </button>
               <span className="text-slate-500 text-xs">{form.weekend_delivery ? '7 days/week — pacing uses calendar days' : 'Mon–Fri only — pacing uses weekdays only'}</span>
@@ -151,11 +151,11 @@ export default function CustomersTab() {
           </div>
           <div>
             <label className="block text-slate-400 text-xs mb-1.5">Notes</label>
-            <textarea value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} rows={2} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <textarea value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} rows={2} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
           </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3">
-            <button onClick={handleCreate} disabled={saving} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{saving ? 'Saving...' : 'Create Customer'}</button>
+            <button onClick={handleCreate} disabled={saving} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{saving ? 'Saving...' : 'Create Customer'}</button>
             <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white text-sm px-3 py-2">Cancel</button>
           </div>
         </div>
@@ -169,27 +169,27 @@ export default function CustomersTab() {
             <div className="space-y-4">
               <div>
                 <label className="block text-slate-400 text-xs mb-1.5">Name</label>
-                <input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
               <div>
                 <label className="block text-slate-400 text-xs mb-1.5">Tier</label>
-                <select value={editForm.tier} onChange={(e) => setEditForm({...editForm, tier: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <select value={editForm.tier} onChange={(e) => setEditForm({...editForm, tier: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                   <option value="retainer">Retainer</option>
                   <option value="pay_per_lead">Pay Per Lead</option>
                 </select>
               </div>
               <div>
                 <label className="block text-slate-400 text-xs mb-1.5">Source</label>
-                <input value={editForm.source} onChange={(e) => setEditForm({...editForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input value={editForm.source} onChange={(e) => setEditForm({...editForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
               <p className="text-slate-500 text-xs">Weekend delivery is set per order — edit via the Orders tab.</p>
               <div>
                 <label className="block text-slate-400 text-xs mb-1.5">Notes</label>
-                <textarea value={editForm.notes} onChange={(e) => setEditForm({...editForm, notes: e.target.value})} rows={2} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <textarea value={editForm.notes} onChange={(e) => setEditForm({...editForm, notes: e.target.value})} rows={2} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={handleEdit} disabled={editSaving} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{editSaving ? 'Saving...' : 'Save Changes'}</button>
+              <button onClick={handleEdit} disabled={editSaving} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{editSaving ? 'Saving...' : 'Save Changes'}</button>
               <button onClick={() => setEditItem(null)} className="text-slate-400 hover:text-white text-sm px-3 py-2">Cancel</button>
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function CustomersTab() {
               <td className="py-3 pr-4 text-slate-400 text-xs">{c.started_at}</td>
               <td className="py-3 pr-4 text-slate-400 text-xs">{c.source ?? '—'}</td>
               <td className="py-3 flex gap-3">
-                <button onClick={() => { setEditItem(c); setEditForm({ name: c.name, tier: c.tier, source: c.source ?? '', notes: c.notes ?? '' }) }} className="text-indigo-400 hover:text-indigo-300 text-xs">Edit</button>
+                <button onClick={() => { setEditItem(c); setEditForm({ name: c.name, tier: c.tier, source: c.source ?? '', notes: c.notes ?? '' }) }} className="text-red-400 hover:text-red-300 text-xs">Edit</button>
                 <button onClick={() => { setDeleteId(c.id); setDeleteName(c.name) }} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
               </td>
             </tr>
@@ -232,3 +232,5 @@ export default function CustomersTab() {
     </AdminCard>
   )
 }
+
+

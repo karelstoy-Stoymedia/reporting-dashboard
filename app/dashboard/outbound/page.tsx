@@ -90,7 +90,7 @@ function OutboundContent() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           onClick={() => setChannel('all')}
-          className={`p-4 rounded-xl border text-left transition-colors ${channelId === 'all' ? 'bg-indigo-900/40 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+          className={`p-4 rounded-xl border text-left transition-colors ${channelId === 'all' ? 'bg-red-900/60/40 border-red-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
         >
           <p className="text-slate-400 text-xs mb-1">All Channels</p>
           <p className="text-white text-2xl font-bold">{data?.totalAllLeads ?? 0}</p>
@@ -100,13 +100,13 @@ function OutboundContent() {
           <button
             key={ch.id}
             onClick={() => setChannel(ch.id)}
-            className={`p-4 rounded-xl border text-left transition-colors ${channelId === ch.id ? 'bg-indigo-900/40 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+            className={`p-4 rounded-xl border text-left transition-colors ${channelId === ch.id ? 'bg-red-900/60/40 border-red-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
           >
             <p className="text-slate-400 text-xs mb-1">{ch.name}</p>
             <p className="text-white text-2xl font-bold">{ch.leads}</p>
             <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-indigo-500 rounded-full"
+                className="h-full bg-red-500 rounded-full"
                 style={{ width: data.totalAllLeads > 0 ? `${(ch.leads / data.totalAllLeads) * 100}%` : '0%' }}
               />
             </div>
@@ -179,3 +179,4 @@ export default function OutboundPage() {
     </Suspense>
   )
 }
+
