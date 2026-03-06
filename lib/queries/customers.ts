@@ -15,10 +15,10 @@ export async function getCustomersDashboardData(startDate: string, endDate: stri
   const supabase = createServiceClient()
 
   const [
-    { data: customers },
-    { data: orders },
-    { data: leadEvents },
-  ] = await Promise.all([
+  { data: customers, error: custErr },
+  { data: orders, error: ordersErr },
+  { data: leadEvents, error: eventsErr },
+] = await Promise.all([
     supabase
       .from('customers')
       .select('id, name, tier, source, started_at, notes')
@@ -34,6 +34,10 @@ export async function getCustomersDashboardData(startDate: string, endDate: stri
       .select('id, customer_id, lead_price, lead_cost, event_date, created_at')
       .eq('event_type', 'lead_sold'),
   ])
+
+  if (custErr) console.error('CUSTOMERS QUERY ERROR:', custErr)
+  if (ordersErr) console.error('ORDERS QUERY ERROR:', ordersErr)
+  if (eventsErr) console.error('EVENTS QUERY ERROR:', eventsErr)
 
   const now = new Date()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
