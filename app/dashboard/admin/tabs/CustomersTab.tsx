@@ -7,22 +7,19 @@ interface Customer {
   id: string
   name: string
   tier: string
-  price_per_lead: number | null
   source: string | null
   started_at: string
-  weekend_delivery: boolean
   notes: string | null
 }
-
 export default function CustomersTab() {
   const [items, setItems] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', tier: 'retainer', price_per_lead: '', source: '', started_at: new Date().toISOString().split('T')[0], weekend_delivery: false, notes: '', lead_quota: '', order_price_per_lead: '' })
+  const [form, setForm] = useState({ name: '', tier: 'retainer', source: '', started_at: new Date().toISOString().split('T')[0], notes: '', lead_quota: '', order_price_per_lead: '', weekend_delivery: false })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editItem, setEditItem] = useState<Customer | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', tier: '', source: '', weekend_delivery: false, notes: '' })
+  const [editForm, setEditForm] = useState({ name: '', tier: '', source: '', notes: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteName, setDeleteName] = useState('')
@@ -43,11 +40,11 @@ export default function CustomersTab() {
     const res = await fetch('/api/admin/customers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, price_per_lead: form.price_per_lead ? parseFloat(form.price_per_lead) : null, lead_quota: parseInt(form.lead_quota), order_price_per_lead: parseFloat(form.order_price_per_lead) }),
+      body: JSON.stringify({ ...form, lead_quota: parseInt(form.lead_quota), order_price_per_lead: parseFloat(form.order_price_per_lead) }),
     })
     if (res.ok) {
       setShowForm(false)
-      setForm({ name: '', tier: 'retainer', price_per_lead: '', source: '', started_at: new Date().toISOString().split('T')[0], weekend_delivery: false, notes: '', lead_quota: '', order_price_per_lead: '' })
+      setForm({ name: '', tier: 'retainer', source: '', started_at: new Date().toISOString().split('T')[0], notes: '', lead_quota: '', order_price_per_lead: '', weekend_delivery: false })
       load()
     } else { const d = await res.json(); setError(d.error ?? 'Failed to create') }
     setSaving(false)
@@ -119,12 +116,14 @@ export default function CustomersTab() {
               <input value={form.source} onChange={(e) => setForm({...form, source: e.target.value})} placeholder="e.g. Outbound cold call" className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <label className="text-slate-400 text-sm">Weekend Delivery</label>
-            <button onClick={() => setForm({...form, weekend_delivery: !form.weekend_delivery})} className={`w-10 h-5 rounded-full transition-colors ${form.weekend_delivery ? 'bg-indigo-600' : 'bg-slate-600'} relative`}>
-              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${form.weekend_delivery ? 'translate-x-5' : 'translate-x-0.5'}`} />
-            </button>
-            <span className="text-slate-500 text-xs">{form.weekend_delivery ? '7 days/week' : 'Mon–Fri only'}</span>
+          <div className="col-span-2">
+            <label className="block text-slate-400 text-xs mb-1.5">Weekend Delivery (this order)</label>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setForm({...form, weekend_delivery: !form.weekend_delivery})} className={`w-10 h-5 rounded-full transition-colors ${form.weekend_delivery ? 'bg-indigo-600' : 'bg-slate-600'} relative`}>
+                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${form.weekend_delivery ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+              <span className="text-slate-500 text-xs">{form.weekend_delivery ? '7 days/week — pacing uses calendar days' : 'Mon–Fri only — pacing uses weekdays only'}</span>
+            </div>
           </div>
           <div>
             <label className="block text-slate-400 text-xs mb-1.5">Notes</label>
@@ -159,12 +158,7 @@ export default function CustomersTab() {
                 <label className="block text-slate-400 text-xs mb-1.5">Source</label>
                 <input value={editForm.source} onChange={(e) => setEditForm({...editForm, source: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
-              <div className="flex items-center gap-3">
-                <label className="text-slate-400 text-sm">Weekend Delivery</label>
-                <button onClick={() => setEditForm({...editForm, weekend_delivery: !editForm.weekend_delivery})} className={`w-10 h-5 rounded-full transition-colors ${editForm.weekend_delivery ? 'bg-indigo-600' : 'bg-slate-600'} relative`}>
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${editForm.weekend_delivery ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
-              </div>
+              <p className="text-slate-500 text-xs">Weekend delivery is set per order — edit via the Orders tab.</p>
               <div>
                 <label className="block text-slate-400 text-xs mb-1.5">Notes</label>
                 <textarea value={editForm.notes} onChange={(e) => setEditForm({...editForm, notes: e.target.value})} rows={2} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -196,16 +190,15 @@ export default function CustomersTab() {
       {loading ? (
         <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-10 bg-slate-800 rounded animate-pulse" />)}</div>
       ) : (
-        <AdminTable headers={['Name', 'Tier', 'Started', 'Weekend', 'Source', 'Actions']}>
+        <AdminTable headers={['Name', 'Tier', 'Started', 'Source', 'Actions']}>
           {items.map((c) => (
             <tr key={c.id}>
               <td className="py-3 pr-4 text-white">{c.name}</td>
               <td className="py-3 pr-4">{tierBadge(c.tier)}</td>
               <td className="py-3 pr-4 text-slate-400 text-xs">{c.started_at}</td>
-              <td className="py-3 pr-4 text-slate-400 text-xs">{c.weekend_delivery ? 'Yes' : 'No'}</td>
               <td className="py-3 pr-4 text-slate-400 text-xs">{c.source ?? '—'}</td>
               <td className="py-3 flex gap-3">
-                <button onClick={() => { setEditItem(c); setEditForm({ name: c.name, tier: c.tier, source: c.source ?? '', weekend_delivery: c.weekend_delivery, notes: c.notes ?? '' }) }} className="text-indigo-400 hover:text-indigo-300 text-xs">Edit</button>
+                <button onClick={() => { setEditItem(c); setEditForm({ name: c.name, tier: c.tier, source: c.source ?? '', notes: c.notes ?? '' }) }} className="text-indigo-400 hover:text-indigo-300 text-xs">Edit</button>
                 <button onClick={() => { setDeleteId(c.id); setDeleteName(c.name) }} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
               </td>
             </tr>

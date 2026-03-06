@@ -263,7 +263,6 @@ export async function POST(
               .insert({
                 name: customer_name,
                 tier: customer_tier ?? 'retainer',
-                price_per_lead,
                 started_at: order_starts_at ?? new Date().toISOString().split('T')[0],
               })
               .select('id')
@@ -294,7 +293,7 @@ export async function POST(
       case 'customers/new-order': {
         const {
           customer_id, customer_name, lead_quota, price_per_lead,
-          order_starts_at, end_current_order, notes
+          order_starts_at, end_current_order, notes, weekend_delivery
         } = body
 
         if (!lead_quota || !price_per_lead) {
@@ -332,6 +331,7 @@ export async function POST(
           ends_at: endsAt,
           source: 'webhook',
           notes: notes ?? null,
+          weekend_delivery: weekend_delivery ?? false,
         })
 
         return NextResponse.json({ success: true })

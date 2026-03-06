@@ -11,7 +11,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { name, tier, price_per_lead, source, started_at, weekend_delivery, notes, lead_quota, order_price_per_lead } = body
+  const { name, tier, source, started_at, weekend_delivery, notes, lead_quota, order_price_per_lead } = body
 
   if (!name || !tier || !started_at || !lead_quota || !order_price_per_lead) {
     return NextResponse.json({ error: 'name, tier, started_at, lead_quota, order_price_per_lead are required' }, { status: 400 })
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
   const { data: customer, error: custError } = await supabase
     .from('customers')
-    .insert({ name, tier, price_per_lead: price_per_lead ?? null, source: source || null, started_at, weekend_delivery: weekend_delivery ?? false, notes: notes || null })
+    .insert({ name, tier, source: source || null, started_at, notes: notes || null })
     .select('id')
     .single()
 
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     ends_at: endsAt,
     source: 'manual',
     is_renewal: false,
+    weekend_delivery: weekend_delivery ?? false,
   })
 
   if (orderError) return NextResponse.json({ error: orderError.message }, { status: 500 })
