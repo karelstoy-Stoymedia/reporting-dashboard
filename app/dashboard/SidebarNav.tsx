@@ -8,10 +8,10 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { href: '/dashboard/general', label: 'General', icon: LayoutDashboard },
-  { href: '/dashboard/ads', label: 'Ads', icon: Megaphone },
-  { href: '/dashboard/outbound', label: 'Outbound', icon: Phone },
-  { href: '/dashboard/customers', label: 'Customers', icon: Users },
+  { href: '/dashboard/general',   label: 'General',    icon: LayoutDashboard },
+  { href: '/dashboard/ads',        label: 'Ads',        icon: Megaphone },
+  { href: '/dashboard/outbound',   label: 'Outbound',   icon: Phone },
+  { href: '/dashboard/customers',  label: 'Customers',  icon: Users },
   { href: '/dashboard/sales-reps', label: 'Sales Reps', icon: UserCheck },
   { href: '/dashboard/fulfilment', label: 'Fulfilment', icon: Package },
 ]
@@ -28,22 +28,19 @@ export default function SidebarNav() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm group ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm group ${
                 isActive
-                  ? 'bg-red-600/15 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-red-600 text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
               <Icon
                 size={16}
-                className={`transition-colors ${
-                  isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-red-400'
+                className={`flex-shrink-0 transition-colors ${
+                  isActive ? 'text-red-100' : 'text-slate-500 group-hover:text-slate-300'
                 }`}
               />
               {label}
-              {isActive && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400" />
-              )}
             </Link>
           )
         })}
@@ -51,22 +48,19 @@ export default function SidebarNav() {
       <div className="px-3 py-4 border-t border-slate-800">
         <Link
           href="/dashboard/admin"
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm group ${
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm group ${
             pathname.startsWith('/dashboard/admin')
-              ? 'bg-red-600/15 text-white'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-red-600 text-white'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
           }`}
         >
           <Settings
             size={16}
-            className={`transition-colors ${
-              pathname.startsWith('/dashboard/admin') ? 'text-red-400' : 'text-slate-500 group-hover:text-red-400'
+            className={`flex-shrink-0 transition-colors ${
+              pathname.startsWith('/dashboard/admin') ? 'text-red-100' : 'text-slate-500 group-hover:text-slate-300'
             }`}
           />
           Admin
-          {pathname.startsWith('/dashboard/admin') && (
-            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400" />
-          )}
         </Link>
       </div>
     </>

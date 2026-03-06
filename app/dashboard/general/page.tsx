@@ -19,7 +19,7 @@ interface DashboardData {
   newCustomersList: { id: string; starts_at: string }[]
 }
 
-const COLORS = ['#6366f1', '#22d3ee']
+const COLORS = ['#dc2626', '#2563eb']
 
 function fmt(n: number | null | undefined) {
   if (n == null || isNaN(n)) return '$0'
@@ -27,18 +27,17 @@ function fmt(n: number | null | undefined) {
   return `$${n.toFixed(0)}`
 }
 
-function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function KpiCard({ label, value, money }: { label: string; value: string; money?: boolean }) {
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-      <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">{label}</p>
-      <p className="text-white text-2xl font-bold mt-1">{value}</p>
-      {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
+    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${money ? 'text-emerald-600' : 'text-gray-900'}`}>{value}</p>
     </div>
   )
 }
 
 function SkeletonCard() {
-  return <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 h-24 animate-pulse" />
+  return <div className="bg-white border border-gray-200 rounded-xl p-5 h-24 animate-pulse" />
 }
 
 function GeneralContent() {
@@ -56,7 +55,6 @@ function GeneralContent() {
       .then(d => { setData(d); setLoading(false) })
   }, [startDate, endDate])
 
-  // Build customers gained daily from newCustomersList
   const dailyMap: Record<string, number> = {}
   data?.newCustomersList?.forEach((c) => {
     const d = c.starts_at?.split('T')[0] ?? ''
@@ -73,64 +71,57 @@ function GeneralContent() {
 
   return (
     <div className="p-8 space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-white text-2xl font-bold">General Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Business overview</p>
+          <h1 className="text-gray-900 text-2xl font-bold">General Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Business overview</p>
         </div>
         <DateRangePicker />
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {loading ? (
           Array(6).fill(0).map((_, i) => <SkeletonCard key={i} />)
         ) : data ? (
           <>
-            <KpiCard label="New Customers" value={String(data.kpis.newCustomers ?? 0)} />
-            <KpiCard label="Revenue" value={fmt(data.kpis.totalRevenue)} />
-            <KpiCard label="Cash Collected" value={fmt(data.kpis.totalCashCollected)} />
-            <KpiCard label="Gross Profit" value={fmt(data.kpis.grossProfit)} />
-            <KpiCard label="Leads Delivered" value={String(data.kpis.totalLeadsDelivered ?? 0)} />
-            <KpiCard label="Total Adspend" value={fmt(data.kpis.totalAdspend)} />
+            <KpiCard label="New Customers"   value={String(data.kpis.newCustomers ?? 0)} />
+            <KpiCard label="Revenue"          value={fmt(data.kpis.totalRevenue)}          money />
+            <KpiCard label="Cash Collected"   value={fmt(data.kpis.totalCashCollected)}    money />
+            <KpiCard label="Gross Profit"     value={fmt(data.kpis.grossProfit)}            money />
+            <KpiCard label="Leads Delivered"  value={String(data.kpis.totalLeadsDelivered ?? 0)} />
+            <KpiCard label="Total Adspend"    value={fmt(data.kpis.totalAdspend)} />
           </>
         ) : null}
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Customers Gained Daily */}
-        <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-white font-semibold mb-4">Customers Gained Daily</h3>
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-gray-900 font-semibold mb-4">Customers Gained Daily</h3>
           {loading ? (
-            <div className="h-48 animate-pulse bg-slate-700 rounded" />
+            <div className="h-48 animate-pulse bg-gray-100 rounded" />
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={customersGainedDaily}>
-                <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }} />
-                <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={2} dot={false} />
+                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
+                <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#111827' }} />
+                <Line type="monotone" dataKey="count" stroke="#dc2626" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        {/* Revenue by Source */}
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-white font-semibold mb-4">Revenue by Source</h3>
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-gray-900 font-semibold mb-4">Revenue by Source</h3>
           {loading ? (
-            <div className="h-48 animate-pulse bg-slate-700 rounded" />
+            <div className="h-48 animate-pulse bg-gray-100 rounded" />
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
                   data={revenueBySource}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
+                  cx="50%" cy="50%"
+                  innerRadius={50} outerRadius={80}
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   labelLine={false}
@@ -140,7 +131,7 @@ function GeneralContent() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                   formatter={(v) => fmt(Number(v))}
                 />
               </PieChart>
@@ -149,36 +140,35 @@ function GeneralContent() {
         </div>
       </div>
 
-      {/* Sales Rep Leaderboard */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-white font-semibold mb-4">Sales Rep Leaderboard</h3>
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <h3 className="text-gray-900 font-semibold mb-4">Sales Rep Leaderboard</h3>
         {loading ? (
           <div className="space-y-2">
-            {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-700 rounded animate-pulse" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700">
+                <tr className="border-b border-gray-200">
                   {['#', 'Rep', 'Revenue', 'Closes', 'Close Rate'].map(h => (
-                    <th key={h} className="text-left text-slate-400 font-medium pb-3 pr-6">{h}</th>
+                    <th key={h} className="text-left text-gray-500 font-medium pb-3 pr-6 text-xs uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody className="divide-y divide-gray-100">
                 {!data?.leaderboard || data.leaderboard.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500">No data for this date range</td>
+                    <td colSpan={5} className="py-8 text-center text-gray-400">No data for this date range</td>
                   </tr>
                 ) : (
                   data.leaderboard.map((rep, i) => (
                     <tr key={rep.name}>
-                      <td className="py-3 pr-6 text-slate-400 font-bold">{i + 1}</td>
-                      <td className="py-3 pr-6 text-white font-medium">{rep.name}</td>
-                      <td className="py-3 pr-6 text-white">{fmt(rep.revenue)}</td>
-                      <td className="py-3 pr-6 text-white">{rep.closes}</td>
-                      <td className="py-3 text-slate-400">{rep.closeRate}%</td>
+                      <td className="py-3 pr-6 text-gray-400 font-bold text-xs">{i + 1}</td>
+                      <td className="py-3 pr-6 text-gray-900 font-medium">{rep.name}</td>
+                      <td className="py-3 pr-6 text-emerald-600 font-medium">{fmt(rep.revenue)}</td>
+                      <td className="py-3 pr-6 text-gray-900">{rep.closes}</td>
+                      <td className="py-3 text-gray-500">{rep.closeRate}%</td>
                     </tr>
                   ))
                 )}
@@ -193,9 +183,8 @@ function GeneralContent() {
 
 export default function GeneralPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-slate-400">Loading...</div>}>
+    <Suspense fallback={<div className="p-8 text-gray-500">Loading...</div>}>
       <GeneralContent />
     </Suspense>
   )
 }
-
