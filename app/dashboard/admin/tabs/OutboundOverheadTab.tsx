@@ -70,60 +70,60 @@ export default function OutboundOverheadTab() {
     load()
   }
 
+  const inputCls = 'bg-white border border-gray-300 text-gray-900 placeholder-gray-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent'
+
   return (
     <AdminCard>
       <div className="mb-6">
-        <h2 className="text-white font-semibold text-lg">Outbound Overhead</h2>
+        <h2 className="text-gray-900 font-semibold text-lg">Outbound Overhead</h2>
         <p className="text-gray-500 text-sm mt-0.5">Enter monthly overhead cost per outbound channel</p>
       </div>
 
-      <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 mb-6 flex gap-3 items-end flex-wrap">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 flex gap-3 items-end flex-wrap">
         <div>
-          <label className="block text-gray-500 text-xs mb-1.5">Channel</label>
-          <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className="bg-white border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-red-500">
+          <label className="block text-gray-600 text-xs font-medium mb-1.5">Channel</label>
+          <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className={`${inputCls} w-48`}>
             <option value="">Select channel</option>
             {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-gray-500 text-xs mb-1.5">Month</label>
-          <input type="month" value={monthYear} onChange={(e) => setMonthYear(e.target.value)} className="bg-white border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-red-500" />
+          <label className="block text-gray-600 text-xs font-medium mb-1.5">Month</label>
+          <input type="month" value={monthYear} onChange={(e) => setMonthYear(e.target.value)} className={`${inputCls} w-48`} />
         </div>
         <div>
-          <label className="block text-gray-500 text-xs mb-1.5">Amount ($)</label>
-          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 3500" className="bg-white border border-slate-600 text-white rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-red-500" />
+          <label className="block text-gray-600 text-xs font-medium mb-1.5">Amount ($)</label>
+          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 3500" className={`${inputCls} w-36`} />
         </div>
-        <button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{saving ? 'Saving...' : 'Save'}</button>
-        {error && <p className="text-red-400 text-sm w-full">{error}</p>}
+        <button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{saving ? 'Saving...' : 'Save'}</button>
+        {error && <p className="text-red-500 text-sm w-full">{error}</p>}
       </div>
 
-      {/* Edit modal */}
       {editItem && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-100 border border-gray-300 rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-white font-semibold mb-4">Edit Overhead Entry</h3>
+          <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-gray-900 font-semibold mb-4">Edit Overhead Entry</h3>
             <p className="text-gray-500 text-sm mb-4">{editItem.outbound_channels?.name} — {editItem.month_year?.slice(0, 7)}</p>
             <div>
-              <label className="block text-gray-500 text-xs mb-1.5">Amount ($)</label>
-              <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-full bg-white border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+              <label className="block text-gray-600 text-xs font-medium mb-1.5">Amount ($)</label>
+              <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className={`w-full ${inputCls}`} />
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={handleEdit} disabled={editSaving} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{editSaving ? 'Saving...' : 'Save Changes'}</button>
-              <button onClick={() => setEditItem(null)} className="text-gray-500 hover:text-white text-sm px-3 py-2">Cancel</button>
+              <button onClick={handleEdit} disabled={editSaving} className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">{editSaving ? 'Saving...' : 'Save Changes'}</button>
+              <button onClick={() => setEditItem(null)} className="text-gray-500 hover:text-gray-700 text-sm px-3 py-2">Cancel</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete confirm */}
       {deleteId && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-100 border border-gray-300 rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-white font-semibold mb-2">Delete Entry?</h3>
-            <p className="text-gray-500 text-sm mb-6">This will permanently remove this overhead entry.</p>
+          <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-gray-900 font-semibold mb-2">Delete Entry?</h3>
+            <p className="text-gray-600 text-sm mb-6">This will permanently remove this overhead entry.</p>
             <div className="flex gap-3">
-              <button onClick={() => handleDelete(deleteId)} className="bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-4 py-2 rounded-lg">Delete</button>
-              <button onClick={() => setDeleteId(null)} className="text-gray-500 hover:text-white text-sm px-3 py-2">Cancel</button>
+              <button onClick={() => handleDelete(deleteId)} className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Delete</button>
+              <button onClick={() => setDeleteId(null)} className="text-gray-500 hover:text-gray-700 text-sm px-3 py-2">Cancel</button>
             </div>
           </div>
         </div>
@@ -136,18 +136,20 @@ export default function OutboundOverheadTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                {['Channel', 'Month', 'Amount', 'Actions'].map(h => <th key={h} className="text-left text-gray-500 font-medium pb-3 pr-4">{h}</th>)}
+                {['Channel', 'Month', 'Amount', 'Actions'].map(h => (
+                  <th key={h} className="text-left text-gray-500 font-medium pb-3 pr-4 text-xs uppercase tracking-wide">{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-gray-100">
               {entries.slice(0, 12).map((e) => (
-                <tr key={e.id}>
-                  <td className="py-3 pr-4 text-white">{e.outbound_channels?.name}</td>
-                  <td className="py-3 pr-4 text-gray-500">{e.month_year?.slice(0, 7)}</td>
-                  <td className="py-3 pr-4 text-white">${Number(e.overhead_amount).toLocaleString()}</td>
+                <tr key={e.id} className="hover:bg-gray-50">
+                  <td className="py-3 pr-4 text-gray-900">{e.outbound_channels?.name}</td>
+                  <td className="py-3 pr-4 text-gray-600">{e.month_year?.slice(0, 7)}</td>
+                  <td className="py-3 pr-4 text-gray-900 font-medium">${Number(e.overhead_amount).toLocaleString()}</td>
                   <td className="py-3 flex gap-3">
-                    <button onClick={() => { setEditItem(e); setEditAmount(String(e.overhead_amount)) }} className="text-red-400 hover:text-red-300 text-xs">Edit</button>
-                    <button onClick={() => setDeleteId(e.id)} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
+                    <button onClick={() => { setEditItem(e); setEditAmount(String(e.overhead_amount)) }} className="text-red-600 hover:text-red-700 text-xs font-medium">Edit</button>
+                    <button onClick={() => setDeleteId(e.id)} className="text-gray-400 hover:text-red-600 text-xs">Delete</button>
                   </td>
                 </tr>
               ))}
@@ -158,6 +160,3 @@ export default function OutboundOverheadTab() {
     </AdminCard>
   )
 }
-
-
-
