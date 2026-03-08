@@ -326,67 +326,98 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Step 5: Leaderboard ranking — top 30% by CPL ─────────────────────────
-  // Fetch all creatives that have spend > 0 and are not manually overridden.
-  // is_pinned = always on leaderboard regardless of rank.
-  // is_removed = always off leaderboard regardless of rank.
-  // Everyone else is ranked by all-time CPL ascending — top 30% get is_on_leaderboard = true.
+  // ── Step 5: Leaderboard ranking — top 30% by CPL + CTR tiebreaker ────────
+  // Rules:
+  // - Ads with 0 leads are excluded entirely — CPL cannot be calculated
+  // - Primary sort: CPL ascending (lower is better)
+  // - Tiebreaker: CTR descending (higher is better)
+  // - Top 30% of qualifying ads get is_on_leaderboard = true
+  // - is_pinned overrides bottom 70% (always on)
+  // - is_removed overrides top 30% (always off)
   let leaderboardUpdated = 0
   try {
-    // Pull all-time spend and leads per creative from metrics table
+    // Pull all-time metrics per creative
     const { data: metricTotals, error: totalsErr } = await supabase
       .from('meta_creative_metrics')
-      .select('creative_id, spend, leads')
+      .select('creative_id, spend, leads, clicks, impressions')
 
     if (totalsErr) throw new Error(totalsErr.message)
 
-    // Aggregate totals per creative
-    const totalsMap = new Map<string, { spend: number; leads: number }>()
+    // Aggregate totals per creative across all metric_date rows
+    const totalsMap = new Map<string, { spend: number; leads: number; clicks: number; impressions: number }>()
     for (const row of metricTotals ?? []) {
-      const existing = totalsMap.get(row.creative_id) ?? { spend: 0, leads: 0 }
+      const existing = totalsMap.get(row.creative_id) ?? { spend: 0, leads: 0, clicks: 0, impressions: 0 }
       totalsMap.set(row.creative_id, {
         spend: existing.spend + (row.spend ?? 0),
         leads: existing.leads + (row.leads ?? 0),
+        clicks: existing.clicks + (row.clicks ?? 0),
+        impressions: existing.impressions + (row.impressions ?? 0),
       })
     }
 
-    // Filter to creatives with spend > 0 and calculable CPL
-    const ranked = Array.from(totalsMap.entries())
-      .filter(([, t]) => t.spend > 0 && t.leads > 0)
-      .map(([creative_id, t]) => ({ creative_id, cpl: t.spend / t.leads }))
-      .sort((a, b) => a.cpl - b.cpl) // ascending — lower CPL is better
+    // Only rank ads that have at least 1 lead — zero-lead ads are excluded entirely
+    const rankable = Array.from(totalsMap.entries())
+      .filter(([, t]) => t.leads > 0 && t.spend > 0)
+      .map(([creative_id, t]) => ({
+        creative_id,
+        cpl: t.spend / t.leads,
+        ctr: t.impressions > 0 ? t.clicks / t.impressions : 0,
+        spend: t.spend,
+        leads: t.leads,
+      }))
+      // Primary: CPL ascending. Tiebreaker: CTR descending
+      .sort((a, b) => {
+        if (a.cpl !== b.cpl) return a.cpl - b.cpl
+        return b.ctr - a.ctr
+      })
 
-    const topCount = Math.ceil(ranked.length * 0.3)
-    const topIds = new Set(ranked.slice(0, topCount).map((r) => r.creative_id))
-    const bottomIds = ranked.slice(topCount).map((r) => r.creative_id)
+    const topCount = Math.ceil(rankable.length * 0.3)
+    const topIds = new Set(rankable.slice(0, topCount).map((r) => r.creative_id))
+    const bottomIds = rankable.slice(topCount).map((r) => r.creative_id)
 
-    // Set top 30% to on leaderboard — skip rows that are manually removed
+    // Also collect all creative_ids that have zero leads — force them off leaderboard
+    const zeroLeadIds = Array.from(totalsMap.entries())
+      .filter(([, t]) => t.leads === 0)
+      .map(([creative_id]) => creative_id)
+
+    // Set top 30% on leaderboard — never override is_removed
     if (topIds.size > 0) {
       const { error: topErr } = await supabase
         .from('meta_creatives')
         .update({ is_on_leaderboard: true })
         .in('id', [...topIds])
-        .eq('is_removed', false) // never override is_removed
+        .eq('is_removed', false)
 
       if (topErr) throw new Error(topErr.message)
     }
 
-    // Set bottom 70% to off leaderboard — skip rows that are manually pinned
+    // Set bottom 70% off leaderboard — never override is_pinned
     if (bottomIds.length > 0) {
       const { error: bottomErr } = await supabase
         .from('meta_creatives')
         .update({ is_on_leaderboard: false })
         .in('id', bottomIds)
-        .eq('is_pinned', false) // never override is_pinned
+        .eq('is_pinned', false)
 
       if (bottomErr) throw new Error(bottomErr.message)
     }
 
-    leaderboardUpdated = ranked.length
+    // Force zero-lead ads off leaderboard — never override is_pinned
+    if (zeroLeadIds.length > 0) {
+      const { error: zeroErr } = await supabase
+        .from('meta_creatives')
+        .update({ is_on_leaderboard: false })
+        .in('id', zeroLeadIds)
+        .eq('is_pinned', false)
+
+      if (zeroErr) throw new Error(zeroErr.message)
+    }
+
+    leaderboardUpdated = rankable.length
   } catch (err: any) {
     errors.push(`Leaderboard ranking failed: ${err.message}`)
   }
-
+  
   // ── Step 6: Update last sync timestamp ───────────────────────────────────
   await supabase
     .from('app_config')
