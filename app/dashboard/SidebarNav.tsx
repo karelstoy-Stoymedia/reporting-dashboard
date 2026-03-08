@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Megaphone, Phone,
-  Users, UserCheck, Package, Settings,
+  Users, UserCheck, Package, Sparkles, Settings,
 } from 'lucide-react'
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/dashboard/customers',  label: 'Customers',  icon: Users },
   { href: '/dashboard/sales-reps', label: 'Sales Reps', icon: UserCheck },
   { href: '/dashboard/fulfilment', label: 'Fulfilment', icon: Package },
+  { href: '/dashboard/creatives',  label: 'Creatives',  icon: Sparkles },
 ]
 
 export default function SidebarNav() {
