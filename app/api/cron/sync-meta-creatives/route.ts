@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
       if (creativeId) {
         try {
           creativeData = await metaGet(creativeId, token, {
-            fields: 'thumbnail_url,title,body,call_to_action_type,video_id',
+            fields: 'thumbnail_url,image_url,title,body,call_to_action_type,video_id',
           })
         } catch { /* non-fatal */ }
       }
@@ -189,7 +189,7 @@ export async function GET(request: NextRequest) {
 
       const isVideo = !!creativeData.video_id || !!(insights?.video_play_actions?.length)
       const creativeType = isVideo ? 'video' : 'image'
-      const thumbnailUrl: string | null = creativeData.thumbnail_url ?? null
+      const thumbnailUrl: string | null = creativeData.image_url ?? creativeData.thumbnail_url ?? null
       const existingStoragePath: string | null = existing?.thumbnail_path ?? null
       const hasValidStoragePath =
         existingStoragePath !== null && !existingStoragePath.startsWith('http')
@@ -417,7 +417,7 @@ export async function GET(request: NextRequest) {
   } catch (err: any) {
     errors.push(`Leaderboard ranking failed: ${err.message}`)
   }
-  
+
   // ── Step 6: Update last sync timestamp ───────────────────────────────────
   await supabase
     .from('app_config')

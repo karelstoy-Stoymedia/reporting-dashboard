@@ -275,7 +275,7 @@ function TagAssignmentModal({ creative, allTags, onClose, onSuccess }: {
     setLoading(true); setError('')
     const res = await fetch(`/api/admin/creatives/${creative.id}/tags`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagIds: selectedIds }),
+      body: JSON.stringify({ tag_ids: selectedIds }),
     })
     res.ok ? onSuccess() : setError((await res.json()).error ?? 'Failed')
     setLoading(false)
@@ -626,29 +626,44 @@ function UntaggedQueue({ creatives, allTags, onSelectCreative, onRefresh }: {
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-4">
-        {creatives.map(c => (
-          <div key={c.id} onClick={() => onSelectCreative(c.id)}
-            className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-            <div className="aspect-video bg-gray-100 overflow-hidden">
-              {c.thumbnail_url
-                ? <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center"><Sparkles size={20} className="text-gray-200" /></div>}
-            </div>
-            <div className="p-3">
-              <p className="text-sm font-medium text-gray-900 truncate mb-2">{c.ad_name}</p>
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                <span>{fmtCurrency(c.totalSpend)}</span>
-                <span>{c.totalLeads} leads</span>
-                <span className="text-emerald-600 font-medium">{fmtCpl(c.cpl)}</span>
-              </div>
-              <button onClick={e => { e.stopPropagation(); setTagModal({ open: true, creative: c }) }}
-                className="w-full flex items-center justify-center gap-1.5 border border-gray-300 text-gray-700 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-50">
-                <Tag size={11} /> Assign Tags
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-left">Creative</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-right">Spend</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-right">Leads</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-right">CPL</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {creatives.map(c => (
+                <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onSelectCreative(c.id)}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Thumb url={c.thumbnail_url} size={48} />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate max-w-[300px]">{c.ad_name}</p>
+                        {c.headline && <p className="text-xs text-gray-400 truncate max-w-[300px] mt-0.5">{c.headline}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-900">{fmtCurrency(c.totalSpend)}</td>
+                  <td className="px-4 py-3 text-right text-gray-900">{c.totalLeads}</td>
+                  <td className="px-4 py-3 text-right text-emerald-600 font-medium">{fmtCpl(c.cpl)}</td>
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setTagModal({ open: true, creative: c })}
+                      className="flex items-center gap-1.5 ml-auto border border-gray-300 text-gray-700 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-50">
+                      <Tag size={11} /> Assign Tags
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {tagModal.open && tagModal.creative && (
         <TagAssignmentModal creative={tagModal.creative} allTags={allTags}
@@ -714,12 +729,13 @@ function LiveView({ accounts, onSelectCreative }: { accounts: MetaAccount[]; onS
           {visibleAdsets.map(a => <option key={a.adset_id} value={a.adset_id}>{a.adset_name}</option>)}
         </select>
       </div>
+
       {loading ? (
-        <div className="grid grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl overflow-hidden animate-pulse">
-              <div className="aspect-video bg-gray-100" />
-              <div className="p-3 space-y-2"><div className="h-3 bg-gray-100 rounded w-3/4" /><div className="h-3 bg-gray-100 rounded w-1/2" /></div>
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-gray-100">
+              <div className="w-12 h-12 bg-gray-100 rounded flex-shrink-0" />
+              <div className="flex-1 space-y-2"><div className="h-3 bg-gray-100 rounded w-1/2" /><div className="h-3 bg-gray-100 rounded w-1/3" /></div>
             </div>
           ))}
         </div>
@@ -729,36 +745,63 @@ function LiveView({ accounts, onSelectCreative }: { accounts: MetaAccount[]; onS
           <p className="text-gray-500 text-sm">No active creatives for these filters.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
-          {creatives.map(c => (
-            <div key={c.id} onClick={() => onSelectCreative(c.id)}
-              className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-              <div className="aspect-video bg-gray-100 overflow-hidden">
-                {c.thumbnail_url
-                  ? <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center"><Sparkles size={20} className="text-gray-200" /></div>}
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-medium text-gray-900 truncate mb-1">{c.ad_name}</p>
-                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                  {c.status}
-                </span>
-                {c.todayMetrics && (
-                  <div className="mt-2 grid grid-cols-3 gap-1 text-xs">
-                    <div><p className="text-gray-400">Spend</p><p className="font-medium text-gray-900">{fmtCurrency(c.todayMetrics.spend)}</p></div>
-                    <div><p className="text-gray-400">Leads</p><p className="font-medium text-gray-900">{c.todayMetrics.leads}</p></div>
-                    <div><p className="text-gray-400">CPL</p><p className="font-medium text-emerald-600">{fmtCpl(c.todayMetrics.cpl)}</p></div>
-                  </div>
-                )}
-                {c.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {c.tags.slice(0, 2).map(t => <TagPill key={t.id} tag={t} />)}
-                    {c.tags.length > 2 && <span className="text-xs text-gray-400">+{c.tags.length - 2}</span>}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+        <div className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-left">Creative</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-left">Campaign / Ad Set</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-left">Status</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-right">Today Spend</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-right">Today Leads</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-right">Today CPL</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-left">Tags</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {creatives.map(c => (
+                  <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onSelectCreative(c.id)}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Thumb url={c.thumbnail_url} size={48} />
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate max-w-[200px]">{c.ad_name}</p>
+                          {c.headline && <p className="text-xs text-gray-400 truncate max-w-[200px] mt-0.5">{c.headline}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs text-gray-500 truncate max-w-[180px]">{c.campaign_name ?? '—'}</p>
+                      <p className="text-xs text-gray-400 truncate max-w-[180px] mt-0.5">{c.adset_name ?? '—'}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900">
+                      {c.todayMetrics ? fmtCurrency(c.todayMetrics.spend) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-900">
+                      {c.todayMetrics ? c.todayMetrics.leads : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-emerald-600 font-medium">
+                      {c.todayMetrics ? fmtCpl(c.todayMetrics.cpl) : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {c.tags.length > 0
+                          ? c.tags.slice(0, 2).map(t => <TagPill key={t.id} tag={t} />)
+                          : <span className="text-xs text-gray-400">—</span>}
+                        {c.tags.length > 2 && <span className="text-xs text-gray-400">+{c.tags.length - 2}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
