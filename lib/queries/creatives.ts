@@ -38,6 +38,7 @@ export async function getCreativesLeaderboard({
 
   if (!includeArchived) creativesQuery = creativesQuery.eq('is_archived_from_board', false)
   if (accountId) creativesQuery = creativesQuery.eq('ad_account_id', accountId)
+  creativesQuery = creativesQuery.eq('status', 'ACTIVE')
 
   const { data: creatives, error: creativesErr } = await creativesQuery
   if (creativesErr) throw creativesErr

@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     let ads: any[] = []
     try {
       ads = await metaGetAll(`${accountId}/ads`, token, {
-        fields: 'id,name,status,adset_id,campaign_id,creative',
+        fields: 'id,name,status,effective_status,adset_id,campaign_id,creative',
       })
     } catch (err: any) {
       errors.push(`Ads fetch failed for ${accountId}: ${err.message}`)
@@ -239,7 +239,7 @@ export async function GET(request: NextRequest) {
             headline: creativeData.title ?? null,
             body: creativeData.body ?? null,
             cta: creativeData.call_to_action_type ?? null,
-            status: ad.status ?? 'UNKNOWN',
+            status: ad.effective_status ?? ad.status ?? 'UNKNOWN',
             first_seen_at: existing ? undefined : todayStr,
             last_seen_at: todayStr,
             updated_at: new Date().toISOString(),
