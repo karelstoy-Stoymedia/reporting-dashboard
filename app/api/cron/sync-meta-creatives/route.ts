@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server'
 const META_API_VERSION = 'v19.0'
 const META_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
-// Edge Function URL — Deno can reach Meta CDN; Vercel cannot
 const EDGE_FUNCTION_URL =
   'https://yswjrfivgupbqrpxcwog.supabase.co/functions/v1/fetch-thumbnails'
 
@@ -43,7 +42,6 @@ async function metaGetAll(path: string, token: string, params: Record<string, st
   return results
 }
 
-// Process array in parallel chunks of `size`
 async function chunkParallel<T, R>(
   items: T[],
   size: number,
@@ -58,13 +56,11 @@ async function chunkParallel<T, R>(
   return results
 }
 
-// A valid storage path is a relative path like "act_123/120abc.jpg"
-// An old CDN URL or null needs to be (re-)fetched by the Edge Function
 function needsThumbnailFetch(existingPath: string | null, freshUrl: string | null): boolean {
-  if (!freshUrl) return false                        // Meta returned no URL — nothing to fetch
-  if (!existingPath) return true                     // Never fetched before
-  if (existingPath.startsWith('http')) return true   // Old behavior: stored CDN URL directly
-  return false                                       // Already has a proper storage path
+  if (!freshUrl) return false
+  if (!existingPath) return true
+  if (existingPath.startsWith('http')) return true
+  return false
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
@@ -81,7 +77,6 @@ export async function GET(request: NextRequest) {
   let metricsInserted = 0
   let thumbnailsUploaded = 0
 
-  // Collect creatives that need thumbnail storage — handed off to Edge Function after main loop
   const needsThumbnail: Array<{
     id: string
     meta_ad_id: string
@@ -133,7 +128,6 @@ export async function GET(request: NextRequest) {
       continue
     }
 
-    // Batch fetch all campaign + adset names in parallel
     const campaignIds = [...new Set(ads.map((a: any) => a.campaign_id).filter(Boolean))] as string[]
     const adsetIds = [...new Set(ads.map((a: any) => a.adset_id).filter(Boolean))] as string[]
 
@@ -155,7 +149,6 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    // Fetch all existing creatives for this account in one query
     const adIds = ads.map((a: any) => a.id)
     const { data: existingRows } = await supabase
       .from('meta_creatives')
@@ -164,7 +157,6 @@ export async function GET(request: NextRequest) {
 
     const existingMap = new Map(existingRows?.map((r: any) => [r.meta_ad_id, r]) ?? [])
 
-    // ── Process ads in parallel chunks of 10 ─────────────────────────────
     const adResults = await chunkParallel(ads, 10, async (ad: any) => {
       const result = {
         metricInserted: false,
@@ -174,7 +166,6 @@ export async function GET(request: NextRequest) {
       const creativeId: string | null = ad.creative?.id ?? null
       const existing: any = existingMap.get(ad.id) ?? null
 
-      // Fetch creative details — fresh thumbnail_url from Meta every sync
       let creativeData: any = {}
       if (creativeId) {
         try {
@@ -184,7 +175,6 @@ export async function GET(request: NextRequest) {
         } catch { /* non-fatal */ }
       }
 
-      // Fetch insights
       let insights: any = null
       try {
         const insightData = await metaGet(`${ad.id}/insights`, token, {
@@ -197,30 +187,22 @@ export async function GET(request: NextRequest) {
         result.error = `Insights failed for ${ad.id}: ${err.message}`
       }
 
-      // Creative type
       const isVideo = !!creativeData.video_id || !!(insights?.video_play_actions?.length)
       const creativeType = isVideo ? 'video' : 'image'
-
       const thumbnailUrl: string | null = creativeData.thumbnail_url ?? null
-
-      // Determine thumbnail_path to store in this upsert:
-      // - If we already have a valid storage path (not a CDN URL), keep it — don't overwrite
-      // - Otherwise leave as-is and let the Edge Function handle it
       const existingStoragePath: string | null = existing?.thumbnail_path ?? null
       const hasValidStoragePath =
         existingStoragePath !== null && !existingStoragePath.startsWith('http')
 
-      // Flag for Edge Function handoff after main loop
       if (needsThumbnailFetch(existingStoragePath, thumbnailUrl)) {
         result.thumbnailNeeded = {
-          id: '', // filled in after upsert when we have the DB row id
+          id: '',
           meta_ad_id: ad.id,
           ad_account_id: accountId,
           thumbnail_url: thumbnailUrl!,
         }
       }
 
-      // Parse metrics
       const actions: any[] = insights?.actions ?? []
       const leads = actions
         .filter((a: any) => a.action_type === 'lead')
@@ -240,9 +222,6 @@ export async function GET(request: NextRequest) {
           ? video3sViews / impressions
           : null
 
-      // Upsert creative
-      // thumbnail_path: keep existing storage path if valid; otherwise null
-      // The Edge Function will write the real path once it downloads the image
       const { data: upsertedCreative, error: upsertErr } = await supabase
         .from('meta_creatives')
         .upsert(
@@ -255,8 +234,6 @@ export async function GET(request: NextRequest) {
             adset_id: ad.adset_id ?? null,
             adset_name: adsetNames.get(ad.adset_id) ?? null,
             ad_name: ad.name,
-            // Only write thumbnail_path if we already have a valid storage path.
-            // If null or a CDN URL, leave the column alone — Edge Function will set it.
             ...(hasValidStoragePath ? { thumbnail_path: existingStoragePath } : {}),
             creative_type: creativeType,
             headline: creativeData.title ?? null,
@@ -277,12 +254,10 @@ export async function GET(request: NextRequest) {
         return result
       }
 
-      // Now that we have the DB id, attach it to the thumbnail handoff record
       if (result.thumbnailNeeded && upsertedCreative) {
         result.thumbnailNeeded.id = upsertedCreative.id
       }
 
-      // Insert metrics
       if (insights && upsertedCreative) {
         const { error: metricsErr } = await supabase
           .from('meta_creative_metrics')
@@ -318,16 +293,13 @@ export async function GET(request: NextRequest) {
       adsProcessed++
       if (r.metricInserted) metricsInserted++
       if (r.error) errors.push(r.error)
-      // Collect valid thumbnail handoff entries (must have id set)
       if (r.thumbnailNeeded && r.thumbnailNeeded.id) {
         needsThumbnail.push(r.thumbnailNeeded)
       }
     }
   }
 
-  // ── Step 4: Hand off thumbnails to Supabase Edge Function ─────────────────
-  // Deno Deploy (Edge Function runtime) can reach Meta CDN freely.
-  // We batch all pending thumbnails in a single POST to stay within Vercel's 60s timeout.
+  // ── Step 4: Thumbnail Edge Function handoff ───────────────────────────────
   if (needsThumbnail.length > 0) {
     try {
       const edgeRes = await fetch(EDGE_FUNCTION_URL, {
@@ -354,7 +326,68 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Step 5: Update last sync timestamp ───────────────────────────────────
+  // ── Step 5: Leaderboard ranking — top 30% by CPL ─────────────────────────
+  // Fetch all creatives that have spend > 0 and are not manually overridden.
+  // is_pinned = always on leaderboard regardless of rank.
+  // is_removed = always off leaderboard regardless of rank.
+  // Everyone else is ranked by all-time CPL ascending — top 30% get is_on_leaderboard = true.
+  let leaderboardUpdated = 0
+  try {
+    // Pull all-time spend and leads per creative from metrics table
+    const { data: metricTotals, error: totalsErr } = await supabase
+      .from('meta_creative_metrics')
+      .select('creative_id, spend, leads')
+
+    if (totalsErr) throw new Error(totalsErr.message)
+
+    // Aggregate totals per creative
+    const totalsMap = new Map<string, { spend: number; leads: number }>()
+    for (const row of metricTotals ?? []) {
+      const existing = totalsMap.get(row.creative_id) ?? { spend: 0, leads: 0 }
+      totalsMap.set(row.creative_id, {
+        spend: existing.spend + (row.spend ?? 0),
+        leads: existing.leads + (row.leads ?? 0),
+      })
+    }
+
+    // Filter to creatives with spend > 0 and calculable CPL
+    const ranked = Array.from(totalsMap.entries())
+      .filter(([, t]) => t.spend > 0 && t.leads > 0)
+      .map(([creative_id, t]) => ({ creative_id, cpl: t.spend / t.leads }))
+      .sort((a, b) => a.cpl - b.cpl) // ascending — lower CPL is better
+
+    const topCount = Math.ceil(ranked.length * 0.3)
+    const topIds = new Set(ranked.slice(0, topCount).map((r) => r.creative_id))
+    const bottomIds = ranked.slice(topCount).map((r) => r.creative_id)
+
+    // Set top 30% to on leaderboard — skip rows that are manually removed
+    if (topIds.size > 0) {
+      const { error: topErr } = await supabase
+        .from('meta_creatives')
+        .update({ is_on_leaderboard: true })
+        .in('id', [...topIds])
+        .eq('is_removed', false) // never override is_removed
+
+      if (topErr) throw new Error(topErr.message)
+    }
+
+    // Set bottom 70% to off leaderboard — skip rows that are manually pinned
+    if (bottomIds.length > 0) {
+      const { error: bottomErr } = await supabase
+        .from('meta_creatives')
+        .update({ is_on_leaderboard: false })
+        .in('id', bottomIds)
+        .eq('is_pinned', false) // never override is_pinned
+
+      if (bottomErr) throw new Error(bottomErr.message)
+    }
+
+    leaderboardUpdated = ranked.length
+  } catch (err: any) {
+    errors.push(`Leaderboard ranking failed: ${err.message}`)
+  }
+
+  // ── Step 6: Update last sync timestamp ───────────────────────────────────
   await supabase
     .from('app_config')
     .upsert({ key: 'creatives_last_synced', value: new Date().toISOString() }, { onConflict: 'key' })
@@ -367,6 +400,7 @@ export async function GET(request: NextRequest) {
     thumbnails_queued: needsThumbnail.length,
     thumbnails_uploaded: thumbnailsUploaded,
     metrics_inserted: metricsInserted,
+    leaderboard_ranked: leaderboardUpdated,
     errors,
   })
 }
