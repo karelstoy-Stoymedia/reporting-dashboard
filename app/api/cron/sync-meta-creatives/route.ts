@@ -13,17 +13,15 @@ async function metaGet(path: string, token: string, params: Record<string, strin
   const res = await fetch(url.toString())
   const data = await res.json()
   if (!res.ok || data.error) {
-    throw new Error(`Meta API error on ${path}: ${JSON.stringify(data.error ?? data)}`)
+    throw new Error(JSON.stringify(data.error ?? data))
   }
   return data
 }
 
-// Paginate through all pages of a Meta API endpoint
 async function metaGetAll(path: string, token: string, params: Record<string, string> = {}): Promise<any[]> {
   const results: any[] = []
   let nextUrl: string | null = null
   let isFirst = true
-
   while (isFirst || nextUrl) {
     let data: any
     if (isFirst) {
@@ -38,11 +36,24 @@ async function metaGetAll(path: string, token: string, params: Record<string, st
     results.push(...(data.data ?? []))
     nextUrl = data.paging?.next ?? null
   }
-
   return results
 }
 
-// Download from Meta CDN and upload to Supabase Storage
+// Process array in parallel chunks of `size`
+async function chunkParallel<T, R>(
+  items: T[],
+  size: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = []
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = items.slice(i, i + size)
+    const chunkResults = await Promise.all(chunk.map(fn))
+    results.push(...chunkResults)
+  }
+  return results
+}
+
 async function uploadThumbnail(
   supabase: ReturnType<typeof createServiceClient>,
   thumbnailUrl: string,
@@ -54,17 +65,10 @@ async function uploadThumbnail(
     const buffer = await res.arrayBuffer()
     const { error } = await supabase.storage
       .from('creative-thumbnails')
-      .upload(storagePath, buffer, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      })
-    if (error) {
-      console.error('Storage upload error:', error.message)
-      return null
-    }
+      .upload(storagePath, buffer, { contentType: 'image/jpeg', upsert: true })
+    if (error) return null
     return storagePath
-  } catch (err) {
-    console.error('Thumbnail upload failed:', err)
+  } catch {
     return null
   }
 }
@@ -78,13 +82,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServiceClient()
-  const syncLog = {
-    accounts_discovered: 0,
-    ads_processed: 0,
-    thumbnails_uploaded: 0,
-    metrics_inserted: 0,
-    errors: [] as string[],
-  }
+  const errors: string[] = []
+  let adsProcessed = 0
+  let thumbnailsUploaded = 0
+  let metricsInserted = 0
 
   // ── Step 1: Read token ────────────────────────────────────────────────────
   const { data: tokenRow } = await supabase
@@ -95,29 +96,22 @@ export async function GET(request: NextRequest) {
 
   const token = tokenRow?.value
   if (!token) {
-    return NextResponse.json({ error: 'meta_access_token not configured in app_config' }, { status: 400 })
+    return NextResponse.json({ error: 'meta_access_token not configured' }, { status: 400 })
   }
 
   // ── Step 2: Auto-discover ad accounts ────────────────────────────────────
   let adAccounts: any[] = []
   try {
     adAccounts = await metaGetAll('me/adaccounts', token, { fields: 'name,account_id' })
-    syncLog.accounts_discovered = adAccounts.length
-
     for (const acc of adAccounts) {
       await supabase
         .from('meta_ad_accounts')
-        .upsert(
-          { account_id: acc.id, account_name: acc.name, is_active: true },
-          { onConflict: 'account_id' }
-        )
+        .upsert({ account_id: acc.id, account_name: acc.name, is_active: true }, { onConflict: 'account_id' })
     }
   } catch (err: any) {
-    syncLog.errors.push(`Account discovery failed: ${err.message}`)
-    return NextResponse.json({ error: 'Failed to discover ad accounts', details: syncLog }, { status: 500 })
+    return NextResponse.json({ error: `Account discovery failed: ${err.message}` }, { status: 500 })
   }
 
-  // Yesterday's date string for metrics
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayStr = yesterday.toISOString().split('T')[0]
@@ -125,20 +119,19 @@ export async function GET(request: NextRequest) {
 
   // ── Step 3: Process each account ─────────────────────────────────────────
   for (const account of adAccounts) {
-    const accountId = account.id // format: act_XXXXXXXXX
+    const accountId = account.id
 
-    // Fetch ads with minimal fields — creative details fetched separately below
     let ads: any[] = []
     try {
       ads = await metaGetAll(`${accountId}/ads`, token, {
         fields: 'id,name,status,adset_id,campaign_id,creative',
       })
     } catch (err: any) {
-      syncLog.errors.push(`Ads fetch failed for ${accountId}: ${err.message}`)
+      errors.push(`Ads fetch failed for ${accountId}: ${err.message}`)
       continue
     }
 
-    // Batch fetch campaign and adset names
+    // Batch fetch all campaign + adset names in parallel
     const campaignIds = [...new Set(ads.map((a: any) => a.campaign_id).filter(Boolean))] as string[]
     const adsetIds = [...new Set(ads.map((a: any) => a.adset_id).filter(Boolean))] as string[]
 
@@ -160,26 +153,32 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    // ── Step 4: Process each ad ───────────────────────────────────────────
-    for (const ad of ads) {
-      syncLog.ads_processed++
+    // Fetch all existing creatives for this account in one query (avoid N+1)
+    const adIds = ads.map((a: any) => a.id)
+    const { data: existingRows } = await supabase
+      .from('meta_creatives')
+      .select('id, meta_ad_id, meta_creative_id, thumbnail_path')
+      .in('meta_ad_id', adIds)
 
+    const existingMap = new Map(existingRows?.map((r: any) => [r.meta_ad_id, r]) ?? [])
+
+    // ── Process ads in parallel chunks of 10 ─────────────────────────────
+    const adResults = await chunkParallel(ads, 10, async (ad: any) => {
+      const result = { thumbnailUploaded: false, metricInserted: false, error: null as string | null }
       const creativeId: string | null = ad.creative?.id ?? null
+      const existing: any = existingMap.get(ad.id) ?? null
 
-      // Fetch creative details separately — nested expansion is unreliable
+      // Fetch creative details
       let creativeData: any = {}
       if (creativeId) {
         try {
           creativeData = await metaGet(creativeId, token, {
             fields: 'thumbnail_url,title,body,call_to_action_type,video_id',
           })
-        } catch {
-          // non-fatal — continue with empty creative data
-        }
+        } catch { /* non-fatal */ }
       }
 
-      // Fetch yesterday's insights
-      // FIX: video_play_actions replaces deprecated video_3_sec_watched_actions
+      // Fetch insights — video_play_actions is the current Meta field for 3s views
       let insights: any = null
       try {
         const insightData = await metaGet(`${ad.id}/insights`, token, {
@@ -189,21 +188,15 @@ export async function GET(request: NextRequest) {
         })
         insights = insightData.data?.[0] ?? null
       } catch (err: any) {
-        syncLog.errors.push(`Insights failed for ad ${ad.id}: ${err.message}`)
-        // non-fatal — upsert creative record without metrics
+        result.error = `Insights failed for ${ad.id}: ${err.message}`
+        // non-fatal — still upsert creative record
       }
 
-      // Determine creative type
+      // Creative type
       const isVideo = !!creativeData.video_id || !!(insights?.video_play_actions?.length)
       const creativeType = isVideo ? 'video' : 'image'
 
-      // ── Thumbnail: upload if creative changed or path missing ─────────────
-      const { data: existing } = await supabase
-        .from('meta_creatives')
-        .select('id, meta_creative_id, thumbnail_path')
-        .eq('meta_ad_id', ad.id)
-        .single()
-
+      // Thumbnail upload
       const creativeChanged = !existing || existing.meta_creative_id !== creativeId
       let thumbnailPath = existing?.thumbnail_path ?? null
 
@@ -212,11 +205,11 @@ export async function GET(request: NextRequest) {
         const uploaded = await uploadThumbnail(supabase, creativeData.thumbnail_url, storagePath)
         if (uploaded) {
           thumbnailPath = storagePath
-          syncLog.thumbnails_uploaded++
+          result.thumbnailUploaded = true
         }
       }
 
-      // ── Parse metrics ─────────────────────────────────────────────────────
+      // Parse metrics
       const actions: any[] = insights?.actions ?? []
       const leads = actions
         .filter((a: any) => a.action_type === 'lead')
@@ -225,21 +218,18 @@ export async function GET(request: NextRequest) {
       const spend = parseFloat(insights?.spend ?? '0')
       const impressions = parseInt(insights?.impressions ?? '0', 10)
       const clicks = parseInt(insights?.clicks ?? '0', 10)
-
-      // video_play_actions = 3-second video views (Meta's current field name)
       const videoPlayActions: any[] = insights?.video_play_actions ?? []
       const video3sViews = videoPlayActions.length > 0
         ? parseInt(videoPlayActions[0]?.value ?? '0', 10)
         : null
 
       const cpl = leads > 0 ? spend / leads : null
-      // hook_rate: video only — null for image ads, never 0
       const hookRate =
         creativeType === 'video' && impressions > 0 && video3sViews !== null
           ? video3sViews / impressions
           : null
 
-      // ── Upsert meta_creatives ─────────────────────────────────────────────
+      // Upsert creative
       const { data: upsertedCreative, error: upsertErr } = await supabase
         .from('meta_creatives')
         .upsert(
@@ -268,11 +258,11 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (upsertErr) {
-        syncLog.errors.push(`Upsert failed for ad ${ad.id}: ${upsertErr.message}`)
-        continue
+        result.error = (result.error ? result.error + ' | ' : '') + `Upsert failed for ${ad.id}: ${upsertErr.message}`
+        return result
       }
 
-      // ── Insert yesterday's metrics ─────────────────────────────────────────
+      // Insert metrics
       if (insights && upsertedCreative) {
         const { error: metricsErr } = await supabase
           .from('meta_creative_metrics')
@@ -295,25 +285,36 @@ export async function GET(request: NextRequest) {
           )
 
         if (metricsErr) {
-          syncLog.errors.push(`Metrics insert failed for ad ${ad.id}: ${metricsErr.message}`)
+          result.error = (result.error ? result.error + ' | ' : '') + `Metrics failed for ${ad.id}: ${metricsErr.message}`
         } else {
-          syncLog.metrics_inserted++
+          result.metricInserted = true
         }
       }
+
+      return result
+    })
+
+    // Tally results
+    for (const r of adResults) {
+      adsProcessed++
+      if (r.thumbnailUploaded) thumbnailsUploaded++
+      if (r.metricInserted) metricsInserted++
+      if (r.error) errors.push(r.error)
     }
   }
 
-  // ── Update last sync timestamp ─────────────────────────────────────────────
+  // Update last sync timestamp
   await supabase
     .from('app_config')
-    .upsert(
-      { key: 'creatives_last_synced', value: new Date().toISOString() },
-      { onConflict: 'key' }
-    )
+    .upsert({ key: 'creatives_last_synced', value: new Date().toISOString() }, { onConflict: 'key' })
 
   return NextResponse.json({
     success: true,
     synced_at: yesterdayStr,
-    ...syncLog,
+    accounts_discovered: adAccounts.length,
+    ads_processed: adsProcessed,
+    thumbnails_uploaded: thumbnailsUploaded,
+    metrics_inserted: metricsInserted,
+    errors,
   })
 }
