@@ -33,7 +33,7 @@ export async function getCreativesLeaderboard({
 
   let creativesQuery = supabase
     .from('meta_creatives')
-    .select('id, meta_ad_id, ad_account_id, campaign_name, adset_name, ad_name, thumbnail_path, creative_type, headline, body, cta, status, is_tagged, is_archived_from_board, first_seen_at, last_seen_at')
+    .select('id, meta_ad_id, ad_account_id, campaign_name, adset_name, ad_name, thumbnail_path, creative_type, headline, body, cta, status, is_tagged, is_archived_from_board, is_on_leaderboard, is_pinned, is_removed, first_seen_at, last_seen_at')
     .order('created_at', { ascending: false })
 
   if (!includeArchived) creativesQuery = creativesQuery.eq('is_archived_from_board', false)
