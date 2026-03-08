@@ -11,37 +11,38 @@ async function metaGet(path: string, token: string, params: Record<string, strin
   url.searchParams.set('access_token', token)
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
   const res = await fetch(url.toString())
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(`Meta API error on ${path}: ${JSON.stringify(err)}`)
+  const data = await res.json()
+  if (!res.ok || data.error) {
+    throw new Error(`Meta API error on ${path}: ${JSON.stringify(data.error ?? data)}`)
   }
-  return res.json()
+  return data
 }
 
 // Paginate through all pages of a Meta API endpoint
 async function metaGetAll(path: string, token: string, params: Record<string, string> = {}): Promise<any[]> {
   const results: any[] = []
-  let url: string | null = null
+  let nextUrl: string | null = null
   let isFirst = true
 
-  while (isFirst || url) {
+  while (isFirst || nextUrl) {
     let data: any
     if (isFirst) {
-      data = await metaGet(path, token, { ...params, limit: '500' })
+      data = await metaGet(path, token, { ...params, limit: '100' })
       isFirst = false
     } else {
-      const res = await fetch(url!)
+      const res = await fetch(nextUrl!)
       if (!res.ok) break
       data = await res.json()
+      if (data.error) break
     }
     results.push(...(data.data ?? []))
-    url = data.paging?.next ?? null
+    nextUrl = data.paging?.next ?? null
   }
 
   return results
 }
 
-// Download image from URL and upload to Supabase Storage
+// Download from Meta CDN and upload to Supabase Storage
 async function uploadThumbnail(
   supabase: ReturnType<typeof createServiceClient>,
   thumbnailUrl: string,
@@ -71,7 +72,6 @@ async function uploadThumbnail(
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // Protect with CRON_SECRET
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     errors: [] as string[],
   }
 
-  // ── Step 1: Read token from app_config ────────────────────────────────────
+  // ── Step 1: Read token ────────────────────────────────────────────────────
   const { data: tokenRow } = await supabase
     .from('app_config')
     .select('value')
@@ -98,16 +98,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'meta_access_token not configured in app_config' }, { status: 400 })
   }
 
-  // ── Step 2: Auto-discover all ad accounts from token ─────────────────────
-  let adAccounts: { id: string; name: string; account_id: string }[] = []
+  // ── Step 2: Auto-discover ad accounts ────────────────────────────────────
+  let adAccounts: any[] = []
   try {
-    const accountData = await metaGetAll('me/adaccounts', token, {
-      fields: 'name,account_id',
-    })
-    adAccounts = accountData
+    adAccounts = await metaGetAll('me/adaccounts', token, { fields: 'name,account_id' })
     syncLog.accounts_discovered = adAccounts.length
 
-    // Upsert discovered accounts into meta_ad_accounts
     for (const acc of adAccounts) {
       await supabase
         .from('meta_ad_accounts')
@@ -121,25 +117,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to discover ad accounts', details: syncLog }, { status: 500 })
   }
 
-  // ── Step 3: For each account, fetch all ads ───────────────────────────────
+  // Yesterday's date string for metrics
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const todayStr = new Date().toISOString().split('T')[0]
 
+  // ── Step 3: Process each account ─────────────────────────────────────────
   for (const account of adAccounts) {
     const accountId = account.id // format: act_XXXXXXXXX
 
+    // Fetch ads with minimal fields — creative details fetched separately below
     let ads: any[] = []
     try {
       ads = await metaGetAll(`${accountId}/ads`, token, {
-        fields: [
-          'id',
-          'name',
-          'status',
-          'adset_id',
-          'campaign_id',
-          'creative{id,thumbnail_url,title,body,call_to_action_type,video_id}',
-        ].join(','),
+        fields: 'id,name,status,adset_id,campaign_id,creative',
       })
     } catch (err: any) {
       syncLog.errors.push(`Ads fetch failed for ${accountId}: ${err.message}`)
@@ -147,8 +139,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Batch fetch campaign and adset names
-    const campaignIds = [...new Set(ads.map(a => a.campaign_id).filter(Boolean))]
-    const adsetIds = [...new Set(ads.map(a => a.adset_id).filter(Boolean))]
+    const campaignIds = [...new Set(ads.map((a: any) => a.campaign_id).filter(Boolean))] as string[]
+    const adsetIds = [...new Set(ads.map((a: any) => a.adset_id).filter(Boolean))] as string[]
 
     const campaignNames = new Map<string, string>()
     const adsetNames = new Map<string, string>()
@@ -168,48 +160,63 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    // ── Step 4: For each ad, fetch yesterday's insights ──────────────────
+    // ── Step 4: Process each ad ───────────────────────────────────────────
     for (const ad of ads) {
       syncLog.ads_processed++
 
+      const creativeId: string | null = ad.creative?.id ?? null
+
+      // Fetch creative details separately — nested expansion is unreliable
+      let creativeData: any = {}
+      if (creativeId) {
+        try {
+          creativeData = await metaGet(creativeId, token, {
+            fields: 'thumbnail_url,title,body,call_to_action_type,video_id',
+          })
+        } catch {
+          // non-fatal — continue with empty creative data
+        }
+      }
+
+      // Fetch yesterday's insights
+      // FIX: video_play_actions replaces deprecated video_3_sec_watched_actions
       let insights: any = null
       try {
         const insightData = await metaGet(`${ad.id}/insights`, token, {
-          fields: 'spend,impressions,clicks,cpm,cpc,ctr,actions,video_3_sec_watched_actions',
+          fields: 'spend,impressions,clicks,cpm,cpc,ctr,actions,video_play_actions',
           date_preset: 'yesterday',
           level: 'ad',
         })
         insights = insightData.data?.[0] ?? null
       } catch (err: any) {
-        syncLog.errors.push(`Insights fetch failed for ad ${ad.id}: ${err.message}`)
+        syncLog.errors.push(`Insights failed for ad ${ad.id}: ${err.message}`)
+        // non-fatal — upsert creative record without metrics
       }
 
-      // ── Step 5: Determine creative type ──────────────────────────────
-      const creative = ad.creative ?? {}
-      const isVideo = !!creative.video_id || !!(insights?.video_3_sec_watched_actions?.length)
+      // Determine creative type
+      const isVideo = !!creativeData.video_id || !!(insights?.video_play_actions?.length)
       const creativeType = isVideo ? 'video' : 'image'
 
-      // ── Step 6: Handle thumbnail storage ─────────────────────────────
-      // Fetch existing creative to check if meta_creative_id changed
+      // ── Thumbnail: upload if creative changed or path missing ─────────────
       const { data: existing } = await supabase
         .from('meta_creatives')
         .select('id, meta_creative_id, thumbnail_path')
         .eq('meta_ad_id', ad.id)
         .single()
 
-      const creativeChanged = !existing || existing.meta_creative_id !== creative.id
+      const creativeChanged = !existing || existing.meta_creative_id !== creativeId
       let thumbnailPath = existing?.thumbnail_path ?? null
 
-      if (creativeChanged && creative.thumbnail_url) {
+      if (creativeChanged && creativeData.thumbnail_url) {
         const storagePath = `${accountId}/${ad.id}.jpg`
-        const uploaded = await uploadThumbnail(supabase, creative.thumbnail_url, storagePath)
+        const uploaded = await uploadThumbnail(supabase, creativeData.thumbnail_url, storagePath)
         if (uploaded) {
           thumbnailPath = storagePath
           syncLog.thumbnails_uploaded++
         }
       }
 
-      // ── Step 7: Parse leads from actions ─────────────────────────────
+      // ── Parse metrics ─────────────────────────────────────────────────────
       const actions: any[] = insights?.actions ?? []
       const leads = actions
         .filter((a: any) => a.action_type === 'lead')
@@ -218,26 +225,27 @@ export async function GET(request: NextRequest) {
       const spend = parseFloat(insights?.spend ?? '0')
       const impressions = parseInt(insights?.impressions ?? '0', 10)
       const clicks = parseInt(insights?.clicks ?? '0', 10)
-      const video3sViews = insights?.video_3_sec_watched_actions?.[0]?.value
-        ? parseInt(insights.video_3_sec_watched_actions[0].value, 10)
+
+      // video_play_actions = 3-second video views (Meta's current field name)
+      const videoPlayActions: any[] = insights?.video_play_actions ?? []
+      const video3sViews = videoPlayActions.length > 0
+        ? parseInt(videoPlayActions[0]?.value ?? '0', 10)
         : null
 
-      // ── Step 8: Compute metrics ───────────────────────────────────────
       const cpl = leads > 0 ? spend / leads : null
-      // hook_rate: only for video ads, never 0 for image ads
-      const hookRate = creativeType === 'video' && impressions > 0 && video3sViews !== null
-        ? video3sViews / impressions
-        : null
+      // hook_rate: video only — null for image ads, never 0
+      const hookRate =
+        creativeType === 'video' && impressions > 0 && video3sViews !== null
+          ? video3sViews / impressions
+          : null
 
-      const today = new Date().toISOString().split('T')[0]
-
-      // ── Step 9: Upsert meta_creatives ─────────────────────────────────
+      // ── Upsert meta_creatives ─────────────────────────────────────────────
       const { data: upsertedCreative, error: upsertErr } = await supabase
         .from('meta_creatives')
         .upsert(
           {
             meta_ad_id: ad.id,
-            meta_creative_id: creative.id ?? null,
+            meta_creative_id: creativeId,
             ad_account_id: accountId,
             campaign_id: ad.campaign_id ?? null,
             campaign_name: campaignNames.get(ad.campaign_id) ?? null,
@@ -246,12 +254,12 @@ export async function GET(request: NextRequest) {
             ad_name: ad.name,
             thumbnail_path: thumbnailPath,
             creative_type: creativeType,
-            headline: creative.title ?? null,
-            body: creative.body ?? null,
-            cta: creative.call_to_action_type ?? null,
+            headline: creativeData.title ?? null,
+            body: creativeData.body ?? null,
+            cta: creativeData.call_to_action_type ?? null,
             status: ad.status ?? 'UNKNOWN',
-            first_seen_at: existing ? undefined : today,
-            last_seen_at: today,
+            first_seen_at: existing ? undefined : todayStr,
+            last_seen_at: todayStr,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'meta_ad_id' }
@@ -264,7 +272,7 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      // ── Step 10: Insert yesterday's metrics (skip if no spend data) ───
+      // ── Insert yesterday's metrics ─────────────────────────────────────────
       if (insights && upsertedCreative) {
         const { error: metricsErr } = await supabase
           .from('meta_creative_metrics')
@@ -295,7 +303,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Step 11: Update last sync timestamp ───────────────────────────────────
+  // ── Update last sync timestamp ─────────────────────────────────────────────
   await supabase
     .from('app_config')
     .upsert(
