@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from 'next/server'
 const META_API_VERSION = 'v19.0'
 const META_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
+// Edge Function URL — Deno can reach Meta CDN; Vercel cannot
+const EDGE_FUNCTION_URL =
+  'https://yswjrfivgupbqrpxcwog.supabase.co/functions/v1/fetch-thumbnails'
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function metaGet(path: string, token: string, params: Record<string, string> = {}) {
@@ -54,23 +58,13 @@ async function chunkParallel<T, R>(
   return results
 }
 
-async function uploadThumbnail(
-  supabase: ReturnType<typeof createServiceClient>,
-  thumbnailUrl: string,
-  storagePath: string
-): Promise<string | null> {
-  try {
-    const res = await fetch(thumbnailUrl)
-    if (!res.ok) return null
-    const buffer = await res.arrayBuffer()
-    const { error } = await supabase.storage
-      .from('creative-thumbnails')
-      .upload(storagePath, buffer, { contentType: 'image/jpeg', upsert: true })
-    if (error) return null
-    return storagePath
-  } catch {
-    return null
-  }
+// A valid storage path is a relative path like "act_123/120abc.jpg"
+// An old CDN URL or null needs to be (re-)fetched by the Edge Function
+function needsThumbnailFetch(existingPath: string | null, freshUrl: string | null): boolean {
+  if (!freshUrl) return false                        // Meta returned no URL — nothing to fetch
+  if (!existingPath) return true                     // Never fetched before
+  if (existingPath.startsWith('http')) return true   // Old behavior: stored CDN URL directly
+  return false                                       // Already has a proper storage path
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
@@ -84,8 +78,16 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const errors: string[] = []
   let adsProcessed = 0
-  let thumbnailsUploaded = 0
   let metricsInserted = 0
+  let thumbnailsUploaded = 0
+
+  // Collect creatives that need thumbnail storage — handed off to Edge Function after main loop
+  const needsThumbnail: Array<{
+    id: string
+    meta_ad_id: string
+    ad_account_id: string
+    thumbnail_url: string
+  }> = []
 
   // ── Step 1: Read token ────────────────────────────────────────────────────
   const { data: tokenRow } = await supabase
@@ -153,7 +155,7 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    // Fetch all existing creatives for this account in one query (avoid N+1)
+    // Fetch all existing creatives for this account in one query
     const adIds = ads.map((a: any) => a.id)
     const { data: existingRows } = await supabase
       .from('meta_creatives')
@@ -164,11 +166,15 @@ export async function GET(request: NextRequest) {
 
     // ── Process ads in parallel chunks of 10 ─────────────────────────────
     const adResults = await chunkParallel(ads, 10, async (ad: any) => {
-      const result = { thumbnailUploaded: false, metricInserted: false, error: null as string | null }
+      const result = {
+        metricInserted: false,
+        error: null as string | null,
+        thumbnailNeeded: null as { id: string; meta_ad_id: string; ad_account_id: string; thumbnail_url: string } | null,
+      }
       const creativeId: string | null = ad.creative?.id ?? null
       const existing: any = existingMap.get(ad.id) ?? null
 
-      // Fetch creative details
+      // Fetch creative details — fresh thumbnail_url from Meta every sync
       let creativeData: any = {}
       if (creativeId) {
         try {
@@ -178,7 +184,7 @@ export async function GET(request: NextRequest) {
         } catch { /* non-fatal */ }
       }
 
-      // Fetch insights — video_play_actions is the current Meta field for 3s views
+      // Fetch insights
       let insights: any = null
       try {
         const insightData = await metaGet(`${ad.id}/insights`, token, {
@@ -189,23 +195,28 @@ export async function GET(request: NextRequest) {
         insights = insightData.data?.[0] ?? null
       } catch (err: any) {
         result.error = `Insights failed for ${ad.id}: ${err.message}`
-        // non-fatal — still upsert creative record
       }
 
       // Creative type
       const isVideo = !!creativeData.video_id || !!(insights?.video_play_actions?.length)
       const creativeType = isVideo ? 'video' : 'image'
 
-      // Thumbnail upload
-      const creativeChanged = !existing || existing.meta_creative_id !== creativeId
-      let thumbnailPath = existing?.thumbnail_path ?? null
+      const thumbnailUrl: string | null = creativeData.thumbnail_url ?? null
 
-      if (creativeChanged && creativeData.thumbnail_url) {
-        const storagePath = `${accountId}/${ad.id}.jpg`
-        const uploaded = await uploadThumbnail(supabase, creativeData.thumbnail_url, storagePath)
-        if (uploaded) {
-          thumbnailPath = storagePath
-          result.thumbnailUploaded = true
+      // Determine thumbnail_path to store in this upsert:
+      // - If we already have a valid storage path (not a CDN URL), keep it — don't overwrite
+      // - Otherwise leave as-is and let the Edge Function handle it
+      const existingStoragePath: string | null = existing?.thumbnail_path ?? null
+      const hasValidStoragePath =
+        existingStoragePath !== null && !existingStoragePath.startsWith('http')
+
+      // Flag for Edge Function handoff after main loop
+      if (needsThumbnailFetch(existingStoragePath, thumbnailUrl)) {
+        result.thumbnailNeeded = {
+          id: '', // filled in after upsert when we have the DB row id
+          meta_ad_id: ad.id,
+          ad_account_id: accountId,
+          thumbnail_url: thumbnailUrl!,
         }
       }
 
@@ -230,6 +241,8 @@ export async function GET(request: NextRequest) {
           : null
 
       // Upsert creative
+      // thumbnail_path: keep existing storage path if valid; otherwise null
+      // The Edge Function will write the real path once it downloads the image
       const { data: upsertedCreative, error: upsertErr } = await supabase
         .from('meta_creatives')
         .upsert(
@@ -242,7 +255,9 @@ export async function GET(request: NextRequest) {
             adset_id: ad.adset_id ?? null,
             adset_name: adsetNames.get(ad.adset_id) ?? null,
             ad_name: ad.name,
-            thumbnail_path: thumbnailPath,
+            // Only write thumbnail_path if we already have a valid storage path.
+            // If null or a CDN URL, leave the column alone — Edge Function will set it.
+            ...(hasValidStoragePath ? { thumbnail_path: existingStoragePath } : {}),
             creative_type: creativeType,
             headline: creativeData.title ?? null,
             body: creativeData.body ?? null,
@@ -260,6 +275,11 @@ export async function GET(request: NextRequest) {
       if (upsertErr) {
         result.error = (result.error ? result.error + ' | ' : '') + `Upsert failed for ${ad.id}: ${upsertErr.message}`
         return result
+      }
+
+      // Now that we have the DB id, attach it to the thumbnail handoff record
+      if (result.thumbnailNeeded && upsertedCreative) {
+        result.thumbnailNeeded.id = upsertedCreative.id
       }
 
       // Insert metrics
@@ -294,16 +314,47 @@ export async function GET(request: NextRequest) {
       return result
     })
 
-    // Tally results
     for (const r of adResults) {
       adsProcessed++
-      if (r.thumbnailUploaded) thumbnailsUploaded++
       if (r.metricInserted) metricsInserted++
       if (r.error) errors.push(r.error)
+      // Collect valid thumbnail handoff entries (must have id set)
+      if (r.thumbnailNeeded && r.thumbnailNeeded.id) {
+        needsThumbnail.push(r.thumbnailNeeded)
+      }
     }
   }
 
-  // Update last sync timestamp
+  // ── Step 4: Hand off thumbnails to Supabase Edge Function ─────────────────
+  // Deno Deploy (Edge Function runtime) can reach Meta CDN freely.
+  // We batch all pending thumbnails in a single POST to stay within Vercel's 60s timeout.
+  if (needsThumbnail.length > 0) {
+    try {
+      const edgeRes = await fetch(EDGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ creatives: needsThumbnail }),
+      })
+
+      if (!edgeRes.ok) {
+        const text = await edgeRes.text()
+        errors.push(`Edge Function call failed (${edgeRes.status}): ${text}`)
+      } else {
+        const edgeResult = await edgeRes.json()
+        thumbnailsUploaded = edgeResult.processed ?? 0
+        if (edgeResult.errors?.length) {
+          errors.push(...edgeResult.errors)
+        }
+      }
+    } catch (err: any) {
+      errors.push(`Edge Function call threw: ${err.message}`)
+    }
+  }
+
+  // ── Step 5: Update last sync timestamp ───────────────────────────────────
   await supabase
     .from('app_config')
     .upsert({ key: 'creatives_last_synced', value: new Date().toISOString() }, { onConflict: 'key' })
@@ -313,6 +364,7 @@ export async function GET(request: NextRequest) {
     synced_at: yesterdayStr,
     accounts_discovered: adAccounts.length,
     ads_processed: adsProcessed,
+    thumbnails_queued: needsThumbnail.length,
     thumbnails_uploaded: thumbnailsUploaded,
     metrics_inserted: metricsInserted,
     errors,
